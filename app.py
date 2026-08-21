@@ -565,7 +565,7 @@ def on_page(canvas, doc):
     canvas.drawRightString(doc.rightMargin + doc.width, doc.bottomMargin - 10, text)
     canvas.restoreState()
 
-def format_reference_for_pdf(ref_text):
+def format_reference_for_pdf(ref_text, index=None):
     """Format a single reference for PDF."""
     # Extract date and URL using regex
     date_match = re.search(r'\(([0-9]{4},\s*[^)]+)\)', ref_text)

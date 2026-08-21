@@ -11,7 +11,12 @@ import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
-from pydantic import BaseModel, Field  # Import Pydantic for schema definition
+# LangChain 0.1.x StructuredTool requires a pydantic.v1 schema; use it even
+# when pydantic v2 is installed (v2 installs expose the v1 compat layer).
+try:
+    from pydantic.v1 import BaseModel, Field
+except ImportError:  # pydantic < 2 installed
+    from pydantic import BaseModel, Field
 from urllib.parse import urlparse
 from datetime import datetime
 

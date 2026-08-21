@@ -2,11 +2,12 @@
 requests
 beautifulsoup4
 python-dotenv
-streamlit
+streamlit>=1.40
 joblib
 reportlab
 python-docx
 tenacity
+tavily-python
 
 # LangChain ecosystem
 langchain>=0.1.0,<0.2.0
