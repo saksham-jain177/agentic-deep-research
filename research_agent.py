@@ -154,8 +154,10 @@ def research_web(query, deep_research=False, language='en'):
         for item in data:
             item.pop('from_cache', None)
         
-        with open("research_data.json", "w") as f:
-            json.dump(data, f, indent=2)
+        # Optional debug dump (off by default; enable with DEBUG_DUMP_RESEARCH=true)
+        if os.getenv("DEBUG_DUMP_RESEARCH", "false").lower() == "true":
+            with open("research_data.json", "w") as f:
+                json.dump(data, f, indent=2)
         print(f"Fetched {len(data)} research items ({len([d for d in data if d.get('from_cache')])} from cache)")
         return data
     except Exception as e:

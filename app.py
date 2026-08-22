@@ -545,7 +545,9 @@ def _clean_analysis_text(text):
     
     return t.strip()
 
-# Function to check OpenRouter status
+# Function to check OpenRouter status (cached to avoid a live network call
+# on every Streamlit rerun)
+@st.cache_data(ttl=120, show_spinner=False)
 def check_openrouter_status():
     """Check if OpenRouter API is operational."""
     try:
@@ -565,7 +567,7 @@ def on_page(canvas, doc):
     canvas.drawRightString(doc.rightMargin + doc.width, doc.bottomMargin - 10, text)
     canvas.restoreState()
 
-def format_reference_for_pdf(ref_text, index=None):
+def format_reference_for_pdf(ref_text):
     """Format a single reference for PDF."""
     # Extract date and URL using regex
     date_match = re.search(r'\(([0-9]{4},\s*[^)]+)\)', ref_text)
@@ -576,53 +578,6 @@ def format_reference_for_pdf(ref_text, index=None):
         url = url_match.group(1)
         return f"({date}). Retrieved from {url}"
     return ref_text
-
-def preprocess_references(refs_section):
-    """Preprocess references to ensure proper formatting."""
-    # Split references by looking for date pattern and "Retrieved from"
-    pattern = r'(?=\([0-9]{4},.*?\).*?Retrieved from)'
-    refs = re.split(pattern, refs_section)
-    # Clean up each reference
-    refs = [ref.strip() for ref in refs if ref.strip()]
-    
-    formatted_refs = []
-    for i, ref in enumerate(refs, 1):
-        # Split URL if it's broken across lines
-        ref = re.sub(r'(?<=https?://\S+)-\s*\n\s*(?=\S+)', '', ref)
-        # Remove any "Page X" artifacts
-        ref = re.sub(r'Page \d+\s*', '', ref)
-        # Clean up extra whitespace
-        ref = ' '.join(ref.split())
-        formatted_ref = format_reference_for_pdf(ref, i)
-        formatted_refs.append(formatted_ref)
-    
-    return formatted_refs
-
-def format_references_section(refs_text):
-    """Format references by adding line breaks after URLs."""
-    # Split by "Retrieved from" to separate different references
-    refs = refs_text.split("Retrieved from")
-    formatted_refs = []
-    
-    for i, ref in enumerate(refs):
-        if i == 0:  # First part might be empty
-            continue
-            
-        # Find the URL pattern
-        url_match = re.search(r'(https?://\S+)', ref)
-        if url_match:
-            url = url_match.group(1)
-            # Get the text before the URL (title part)
-            title_part = ref[:url_match.start()].strip()
-            if i > 0 and formatted_refs:  # Add the previous title
-                formatted_refs[-1] += f"Retrieved from {url}\n\n"
-            formatted_refs.append(title_part)
-    
-    # Handle the last URL
-    if formatted_refs and url_match:
-        formatted_refs[-1] += f"Retrieved from {url}\n\n"
-    
-    return "".join(formatted_refs)
 
 # Function to generate PDF with proper formatting and cover page
 def generate_pdf(query, data, summary, deep_research=False):
@@ -688,8 +643,6 @@ def generate_pdf(query, data, summary, deep_research=False):
     story.append(Spacer(1, 48))
 
     # Metadata
-    story.append(Paragraph(f"OpenRouter Status: {'Operational' if check_openrouter_status() else 'Down'}", styles['Normal']))
-    story.append(Spacer(1, 12))
     mode = "Deep Research" if deep_research else "Quick Research"
     story.append(Paragraph(f"Mode: {mode}", styles['Normal']))
     story.append(Spacer(1, 12))
@@ -829,7 +782,6 @@ def generate_docx(query, data, summary, deep_research=False):
     doc.add_paragraph(f"Query: {query}")
     doc.add_paragraph(f"Date: {datetime.date.today().strftime('%B %d, %Y')}")
     doc.add_paragraph(f"Author: Deep Research AI Agent")
-    doc.add_paragraph(f"OpenRouter Status: {'Operational' if check_openrouter_status() else 'Down'}")
     doc.add_paragraph(f"Mode: {'Deep Research' if deep_research else 'Quick Research'}")
     
     # Research Summary Section
@@ -1030,20 +982,6 @@ def _fix_readability(text: str) -> str:
     t = re.sub(r"([A-Za-z])\(", r"\1 (", t)
     return t
 
-def _render_small_text(text: str):
-    t = _fix_readability(text)
-    safe = html.escape(t)
-    # Preserve paragraphs: split on blank lines
-    parts = [p.strip() for p in safe.split("\n\n") if p.strip()]
-    if not parts:
-        st.markdown(f"<div style='font-size:0.95rem; line-height:1.7;'>{safe}</div>", unsafe_allow_html=True)
-        return
-    html_blocks = []
-    for p in parts:
-        p_clean = p.replace("\n", " ")
-        html_blocks.append(f"<p style='margin:0 0 0.75rem 0;'>{p_clean}</p>")
-    st.markdown("".join(html_blocks), unsafe_allow_html=True)
-
 # Light cleanup for raw source content coming from the web
 def _clean_source_text(text: str) -> str:
     if not isinstance(text, str):
@@ -1104,11 +1042,10 @@ def _validate_tavily_key(key: str) -> bool:
     try:
         if not key:
             return False
-        from tavily import TavilyClient
-        client = TavilyClient(api_key=key)
-        # Minimal request; if unauthorized will raise
-        client.search("ping", max_results=1)
-        return True
+        # Format check only — a real search here would burn API credits on
+        # every page render (cache miss). Tavily keys are 32-char alphanumeric
+        # with the tvly- prefix.
+        return key.startswith("tvly-") and len(key) >= 20
     except Exception:
         return False
 
@@ -1213,7 +1150,8 @@ def fetch_openrouter_models(api_key: str | None) -> list:
 
 DEFAULT_MODEL = os.getenv("OPENROUTER_MODEL") or "tngtech/deepseek-r1t2-chimera:free"
 api_key_present = os.getenv("OPENROUTER_API_KEY")
-all_models = fetch_openrouter_models(api_key_present)
+with st.spinner("Fetching available OpenRouter models..."):
+    all_models = fetch_openrouter_models(api_key_present)
 free_models_meta = [m for m in all_models if m.get("free")]
 free_models = [m["id"] for m in free_models_meta]
 if not free_models:
@@ -1277,19 +1215,16 @@ def benchmark_model(model_id: str, max_new_tokens: int = 64) -> dict | None:
 # Show model metrics UI
 meta_map = {m["id"]: m for m in free_models_meta}
 ctx_len = meta_map.get(selected_model, {}).get("context")
-bench = None
-if st.sidebar.button("Benchmark model", help="Measures time to first token and tokens/sec (short run)."):
-    bench = benchmark_model(selected_model)
+clicked_benchmark = st.sidebar.button("Benchmark model", help="Measures time to first token and tokens/sec (short run).")
+bench = benchmark_model(selected_model) if clicked_benchmark else None
 if bench:
     st.sidebar.metric("Latency", f"{bench['latency_s']} s")
     st.sidebar.metric("Throughput", f"{bench['throughput_tps']} tkn/s")
     st.sidebar.caption("Benchmarks are approximate and cached.")
 elif ctx_len:
     st.sidebar.caption(f"Context: {ctx_len:,} tokens (reported)")
-else:
-    # If user clicked but benchmark failed
-    if 'bench' in locals() and bench is None and api_key_present:
-        st.sidebar.error("Benchmark failed (model/provider refused or network error). Try again or choose another model.")
+elif clicked_benchmark and api_key_present:
+    st.sidebar.error("Benchmark failed (model/provider refused or network error). Try again or choose another model.")
 
 # User input with Deep Research toggle
 query = st.text_input("Research Query", "Latest advancements in quantum computing")
@@ -1568,18 +1503,6 @@ if st.session_state.research_data and st.session_state.response and not st.sessi
     word_count = len(st.session_state.response.split())
     page_estimate = word_count // 400 + 1
     st.info(f"Summary contains {word_count} words, estimated at {page_estimate} pages.")
-    
-    # Add Research Data section
-    st.write("### Research Data 📚")
-    for item in st.session_state.research_data:
-        with st.expander(item['title']):
-            # Render content with markdown support for all languages
-            content = item['content']
-            # Fix asterisk patterns
-            content = re.sub(r'\*{4}([^*]{1,100}?)\*{4}', r'**\1**', content)
-            content = re.sub(r'\*{3}([^*]{1,100}?)\*{3}', r'**\1**', content)
-            st.markdown(content)
-            st.markdown(f"[Visit Source]({item['url']})")
 
 # Display download options if research data is available
 if st.session_state.research_data and st.session_state.response:
@@ -1787,4 +1710,4 @@ if st.sidebar.button("Submit Feedback"):
         except smtplib.SMTPAuthenticationError:
             st.sidebar.error("Feedback system authentication error. Please contact admin.")
         except Exception as e:
-            st.sidebar.error(f"Unable to send feedback. Please try again later.")
+            st.sidebar.error(f"Unable to send feedback: {type(e).__name__}. Please try again later.")
