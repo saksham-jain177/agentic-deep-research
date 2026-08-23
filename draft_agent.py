@@ -438,90 +438,95 @@ def draft_answer(
     if not llm_instance:
         return "Error drafting response: Missing API key. Set OPENROUTER_API_KEY (preferred) or OPENAI_API_KEY with OPENAI_BASE_URL."
 
-    attempt = 0
-    while attempt < retries:
-        try:
-            data_str = json.dumps(data)
-            
-            # Add citations to data
-            citations = [format_citation(item, citation_format) for item in data]
-            data_with_citations = {
-                "content": data_str,
-                "citations": citations,
-                "style": writing_style,
-                "language": language
-            }
+    try:
+        data_str = json.dumps(data)
+        
+        # Add citations to data
+        citations = [format_citation(item, citation_format) for item in data]
+        data_with_citations = {
+            "content": data_str,
+            "citations": citations,
+            "style": writing_style,
+            "language": language
+        }
 
-            # Modify prompts with style and language
-            if not deep_research:
-                sections = [
-                    ("Key Findings", apply_writing_style(sanitize_template_for_markdown(key_findings_prompt.template), writing_style)),
-                    ("Analysis", apply_writing_style(sanitize_template_for_markdown(analysis_prompt.template), writing_style))
-                ]
+        # Modify prompts with style and language
+        if not deep_research:
+            sections = [
+                ("Key Findings", apply_writing_style(sanitize_template_for_markdown(key_findings_prompt.template), writing_style)),
+                ("Analysis", apply_writing_style(sanitize_template_for_markdown(analysis_prompt.template), writing_style))
+            ]
+        else:
+            sections = [
+                ("Abstract", apply_writing_style(sanitize_template_for_markdown(abstract_prompt.template), writing_style)),
+                ("Introduction", apply_writing_style(sanitize_template_for_markdown(introduction_prompt.template), writing_style)),
+                ("Literature Review", apply_writing_style(sanitize_template_for_markdown(literature_review_prompt.template), writing_style)),
+                ("Key Findings", apply_writing_style(sanitize_template_for_markdown(key_findings_prompt.template), writing_style)),
+                ("Analysis", apply_writing_style(sanitize_template_for_markdown(analysis_prompt.template), writing_style)),
+                ("Conclusion", apply_writing_style(sanitize_template_for_markdown(conclusion_prompt.template), writing_style))
+            ]
+
+        # Add language instruction and markdown formatting to system message
+        system_message = f"Please provide the response in {language}. "
+        system_message += f"Use {citation_format} citation format when referencing sources.\n"
+        lang_block = LANGUAGE_PROMPTS.get(language.lower())
+        if lang_block:
+            system_message += lang_block + "\n"
+        system_message += (
+            "Format all sections in valid Markdown using appropriate headings and lists. "
+            "Do not use HTML; use Markdown constructs only."
+        )
+
+        response_text = []
+        for section_name, prompt_template in sections:
+            messages = [
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt_template.format(
+                    data=json.dumps(data_with_citations),
+                    word_count=target_word_count // len(sections)
+                )}
+            ]
+
+            # Per-section retry: only the failed section is regenerated,
+            # already-completed sections are kept as-is.
+            last_error = None
+            for _section_attempt in range(retries):
+                try:
+                    response = llm_instance.invoke(messages)
+                    break
+                except Exception as e:
+                    last_error = e
+                    if _section_attempt < retries - 1:
+                        time.sleep(delay)
             else:
-                sections = [
-                    ("Abstract", apply_writing_style(sanitize_template_for_markdown(abstract_prompt.template), writing_style)),
-                    ("Introduction", apply_writing_style(sanitize_template_for_markdown(introduction_prompt.template), writing_style)),
-                    ("Literature Review", apply_writing_style(sanitize_template_for_markdown(literature_review_prompt.template), writing_style)),
-                    ("Key Findings", apply_writing_style(sanitize_template_for_markdown(key_findings_prompt.template), writing_style)),
-                    ("Analysis", apply_writing_style(sanitize_template_for_markdown(analysis_prompt.template), writing_style)),
-                    ("Conclusion", apply_writing_style(sanitize_template_for_markdown(conclusion_prompt.template), writing_style))
-                ]
+                raise last_error
+            section_text = clean_think_tags(response.content.strip())
+            
+            if section_name == "Key Findings":
+                section_text = format_key_findings(section_text)
+            # Normalize paragraphs & lists for any language
+            section_text = normalize_markdown(section_text)
+            if section_name == "Analysis":
+                section_text = paragraphize_analysis(section_text, max_sentences=5)
+            
+            response_text.append({"title": section_name, "content": section_text})
 
-            # Add language instruction and markdown formatting to system message
-            system_message = f"Please provide the response in {language}. "
-            system_message += f"Use {citation_format} citation format when referencing sources.\n"
-            lang_block = LANGUAGE_PROMPTS.get(language.lower())
-            if lang_block:
-                system_message += lang_block + "\n"
-            system_message += (
-                "Format all sections in valid Markdown using appropriate headings and lists. "
-                "Do not use HTML; use Markdown constructs only."
-            )
-
-            response_text = []
-            for section_name, prompt_template in sections:
-                messages = [
-                    {"role": "system", "content": system_message},
-                    {"role": "user", "content": prompt_template.format(
-                        data=json.dumps(data_with_citations),
-                        word_count=target_word_count // len(sections)
-                    )}
-                ]
-                
-                response = llm_instance.invoke(messages)
-                section_text = clean_think_tags(response.content.strip())
-                
-                if section_name == "Key Findings":
-                    section_text = format_key_findings(section_text)
-                # Normalize paragraphs & lists for any language
-                section_text = normalize_markdown(section_text)
-                if section_name == "Analysis":
-                    section_text = paragraphize_analysis(section_text, max_sentences=5)
-                
-                response_text.append({"title": section_name, "content": section_text})
-
-            used_model = os.getenv("OPENROUTER_MODEL") or os.getenv("OPENAI_MODEL") or "unknown"
-            result = {
-                "sections": response_text,
-                "references": citations,
-                "metadata": {
-                    "model": used_model,
-                    "language": language,
-                    "writing_style": writing_style,
-                    "citation_format": citation_format
-                }
+        used_model = os.getenv("OPENROUTER_MODEL") or os.getenv("OPENAI_MODEL") or "unknown"
+        result = {
+            "sections": response_text,
+            "references": citations,
+            "metadata": {
+                "model": used_model,
+                "language": language,
+                "writing_style": writing_style,
+                "citation_format": citation_format
             }
-            return json.dumps(result)
+        }
+        return json.dumps(result)
 
-        except Exception as e:
-            attempt += 1
-            if attempt < retries:
-                time.sleep(delay)
-                continue
-            return f"Error drafting response: {type(e).__name__} - {str(e)}"
-    
-    return "Error drafting response: Max retries exceeded."
+    except Exception as e:
+        return f"Error drafting response: {type(e).__name__} - {str(e)}"
+
 
 # Define the tool with support for deep research and target word count using StructuredTool
 draft_tool = StructuredTool.from_function(
