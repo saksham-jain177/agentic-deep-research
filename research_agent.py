@@ -1,5 +1,6 @@
 import os
 import json
+from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
 from langchain.tools import Tool
 from tavily import TavilyClient
@@ -117,23 +118,35 @@ def research_web(query, deep_research=False, language='en'):
                 f"{query} overview OR review OR advancements",
                 f"{query} recent developments OR breakthroughs",
             ]
-            for variant_query in variant_queries:
-                if len(data) >= 15:
-                    break
-                results = tavily_client.search(variant_query, max_results=max_results)
+
+            def _search_variant(variant_query):
+                """Run one variant Tavily search and return filtered results."""
+                try:
+                    res = tavily_client.search(variant_query, max_results=max_results)
+                except Exception as e:
+                    print(f"Variant query failed: {e}, skipping")
+                    return []
                 additional_data = []
-                for r in results["results"]:
+                for r in res["results"]:
                     u = r.get("url") or ""
                     domain = urlparse(u).netloc.lower()
                     if any(domain.endswith(ex) for ex in EXCLUDED_DOMAINS):
                         continue
                     additional_data.append({"title": r.get("title",""), "content": r.get("content",""), "url": u})
-                for item in additional_data:
-                    if item["url"] not in url_set:
-                        data.append(item)
-                        url_set.add(item["url"])
-                # Limit to 20 results to avoid overwhelming the model
-                data = data[:20]
+                return additional_data
+
+            # Run the variant sub-queries in parallel (results merged in the
+            # original variant order so behavior stays deterministic).
+            with ThreadPoolExecutor(max_workers=len(variant_queries)) as executor:
+                for additional_data in executor.map(_search_variant, variant_queries):
+                    if len(data) >= 15:
+                        break
+                    for item in additional_data:
+                        if item["url"] not in url_set:
+                            data.append(item)
+                            url_set.add(item["url"])
+                    # Limit to 20 results to avoid overwhelming the model
+                    data = data[:20]
 
         # Rerank fresh (non-cached) results against the query with the local
         # cross-encoder and keep the top-K most relevant. Cached results are
