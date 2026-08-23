@@ -441,6 +441,41 @@ class ResearchVectorStore:
 # Singleton instance (optional, for easy access)
 _vector_store = None
 
+# Module-level lazy reranker for standalone reranking of fresh web results
+# (usable without initializing the full vector store).
+_module_reranker = None
+
+def get_standalone_reranker():
+    """Lazy load the shared CrossEncoder for standalone reranking."""
+    global _module_reranker
+    if _module_reranker is None:
+        print("Loading reranker model (first use)...")
+        _module_reranker = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+    return _module_reranker
+
+def rerank_documents(query: str,
+                     documents: List[Dict[str, Any]],
+                     top_k: int = 10) -> List[Dict[str, Any]]:
+    """
+    Rerank a list of result documents ({'title', 'content', 'url', ...})
+    against a query using the local cross-encoder and return the top_k best.
+    Raises on reranker failure; callers should degrade gracefully.
+    """
+    if not documents or top_k <= 0:
+        return list(documents)[:top_k] if documents else []
+
+    pairs = [[query, doc.get('content', '')] for doc in documents]
+    scores = get_standalone_reranker().predict(pairs)
+
+    scored = []
+    for i, doc in enumerate(documents):
+        doc = dict(doc)
+        doc['rerank_score'] = float(scores[i])
+        scored.append(doc)
+
+    scored.sort(key=lambda x: x.get('rerank_score', 0), reverse=True)
+    return scored[:top_k]
+
 def get_vector_store(persist_dir: str = "./chroma_db", enable_reranker: bool = True) -> ResearchVectorStore:
     """Get or create the singleton vector store instance."""
     global _vector_store

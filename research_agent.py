@@ -135,6 +135,23 @@ def research_web(query, deep_research=False, language='en'):
                 # Limit to 20 results to avoid overwhelming the model
                 data = data[:20]
 
+        # Rerank fresh (non-cached) results against the query with the local
+        # cross-encoder and keep the top-K most relevant. Cached results are
+        # already reranked by the vector store, so they stay at the front.
+        try:
+            from vector_store import rerank_documents
+            cached = [d for d in data if d.get('from_cache', False)]
+            fresh = [d for d in data if not d.get('from_cache', False)]
+            if len(fresh) > 1:
+                top_k = int(os.getenv("RERANK_TOP_K", "10"))
+                ranked = rerank_documents(query, fresh, top_k=top_k)
+                print(f"Reranked {len(fresh)} fresh results, kept top {len(ranked)}")
+                data = cached + ranked
+        except ImportError:
+            pass  # vector store dependencies not installed; keep original order
+        except Exception as e:
+            print(f"Reranking failed: {e}, keeping original order")
+
         # Store results in vector store if enabled
         if VECTOR_STORE_ENABLED and vector_store and data:
             try:
