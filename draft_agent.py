@@ -37,6 +37,27 @@ load_dotenv()
 llm = None
 _llm_cfg = {"api_key": None, "base_url": None, "model": None}
 
+def _env_int(name: str, default: int) -> int:
+    """Read a positive int from the environment, falling back to default."""
+    try:
+        value = int(os.getenv(name, str(default)))
+        return value if value > 0 else default
+    except ValueError:
+        return default
+
+# Reliability: every LLM HTTP call gets an explicit socket timeout and client-
+# side retry budget instead of hanging indefinitely (env-configurable).
+DEFAULT_LLM_TIMEOUT_SECONDS = 60
+DEFAULT_LLM_MAX_RETRIES = 2
+
+
+def _llm_network_kwargs() -> dict:
+    """Shared ChatOpenAI kwargs: request timeout + client-side retries."""
+    return {
+        "timeout": _env_int("LLM_TIMEOUT_SECONDS", DEFAULT_LLM_TIMEOUT_SECONDS),
+        "max_retries": _env_int("LLM_MAX_RETRIES", DEFAULT_LLM_MAX_RETRIES),
+    }
+
 def _get_llm():
     """Return a configured ChatOpenAI instance or None if keys are missing.
     Accepts either OPENROUTER_API_KEY (preferred) or OPENAI_API_KEY with
@@ -53,7 +74,7 @@ def _get_llm():
     # Rebuild the LLM client if config changed (e.g., user switched models)
     if llm is None or any(_llm_cfg.get(k) != v for k, v in desired.items()):
         try:
-            llm = ChatOpenAI(api_key=api_key, base_url=base_url, model=model)
+            llm = ChatOpenAI(api_key=api_key, base_url=base_url, model=model, **_llm_network_kwargs())
             _llm_cfg = desired
         except Exception as e:
             logging.error(f"Failed to initialize LLM: {type(e).__name__}: {str(e)}")
@@ -73,7 +94,7 @@ def _llm_for_model(model: str):
     """Build a ChatOpenAI client for a specific model in the fallback chain."""
     api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
     base_url = os.getenv("OPENAI_BASE_URL") or "https://openrouter.ai/api/v1"
-    return ChatOpenAI(api_key=api_key, base_url=base_url, model=model)
+    return ChatOpenAI(api_key=api_key, base_url=base_url, model=model, **_llm_network_kwargs())
 
 def _should_advance_model_chain(error: Exception) -> bool:
     """True for rate-limit / empty-response failures worth a different model.
