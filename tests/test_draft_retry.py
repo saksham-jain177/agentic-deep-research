@@ -56,12 +56,13 @@ def test_transient_failure_retries_only_failed_section(patched_llm):
     raw, llm = _draft(llm)
     result = json.loads(raw)
 
-    assert len(result["sections"]) == 6
+    assert len(result["sections"]) == 7  # 6 sections + Verification Summary block
     assert [s["title"] for s in result["sections"]] == [
         "Abstract", "Introduction", "Literature Review",
         "Key Findings", "Analysis", "Conclusion",
+        "Verification Summary",
     ]
-    # 6 sections + 1 retry = 7 total invokes (not 2 full report passes = 12).
+    # 6 sections + 1 retry = 7 total drafting invokes (not 2 full passes = 12).
     assert llm.calls == 7
 
 
