@@ -212,67 +212,6 @@ def apply_writing_style(prompt: str, style: str) -> str:
     style_config = STYLE_TEMPLATES.get(style, STYLE_TEMPLATES["academic"])
     return prompt + f"\n\nUse a {style_config['tone']} tone with {style_config['vocabulary']}, following a {style_config['structure']}."
 
-# Prompts for shallow research mode
-def get_shallow_word_counts(target_word_count):
-    """Distribute the target word count across sections in shallow mode."""
-    intro = max(50, int(target_word_count * 0.25))  # 25%
-    findings = max(75, int(target_word_count * 0.35))  # 35%
-    analysis = max(50, int(target_word_count * 0.25))  # 25%
-    conclusion = max(25, int(target_word_count * 0.15))  # 15%
-    return intro, findings, analysis, conclusion
-
-shallow_introduction_prompt = PromptTemplate(
-    input_variables=["data", "word_count"],
-    template="""
-    Generate a concise introduction for a research summary based on the following data. Briefly introduce the topic and its significance in approximately {word_count} words, focusing on clarity and understanding with minimal context. Do not include the word "Introduction" in your response; only provide the content of the introduction section. Do not include any internal reasoning tags like <think> or similar markers in your response; only provide the final content.
-
-    Data: {data}
-    """
-)
-
-shallow_key_findings_prompt = PromptTemplate(
-    input_variables=["data", "word_count"],
-    template="""
-    Generate a concise key findings section for a research summary based on the following data. Summarize the main points in a numbered list (3-5 points, approximately {word_count} words total), focusing on clarity and understanding with minimal context. Each numbered point must be on a new line with a newline character (\n) between points (e.g., 1. First finding.\n2. Second finding.\n3. Third finding.). Ensure there is a space after each number and period (e.g., "1. " not "1."). Do not include the phrase "Key Findings" in your response; only provide the content of the key findings section. Do not include any internal reasoning tags like <think> or similar markers in your response; only provide the final content.
-
-    Data: {data}
-    """
-)
-
-shallow_analysis_prompt = PromptTemplate(
-    input_variables=["data", "word_count"],
-    template="""
-    Generate a concise analysis section for a research summary based on the following data. Structure your analysis exactly as follows, with each section clearly marked:
-
-    [PARA1]
-    Initial assessment (~75 words): Provide primary observations and immediate implications.
-    [/PARA1]
-
-    [PARA2]
-    Detailed examination (~50 words): Explore key patterns and relationships.
-    [/PARA2]
-
-    [PARA3]
-    Critical insights (~50 words): Discuss significant findings and their impact.
-    [/PARA3]
-
-    [PARA4]
-    Future implications (~25 words): Brief outlook on potential developments.
-    [/PARA4]
-
-    Data: {data}
-    """
-)
-
-shallow_conclusion_prompt = PromptTemplate(
-    input_variables=["data", "word_count"],
-    template="""
-    Generate a concise conclusion section for a research summary based on the following data. Conclude with a short statement on potential future developments or recommendations in approximately {word_count} words, focusing on clarity and understanding with minimal context. Do not include the word "Conclusion" in your response; only provide the content of the conclusion section. Do not include any internal reasoning tags like <think> or similar markers in your response; only provide the final content.
-
-    Data: {data}
-    """
-)
-
 # Prompts for each section in deep research mode
 def get_deep_word_counts(target_word_count):
     """Distribute the target word count across sections in deep mode."""
@@ -360,24 +299,6 @@ def format_key_findings(text):
     formatted_text = formatted_text.strip()
     formatted_text = re.sub(r"\n{2,}", "\n", formatted_text)
     return formatted_text
-
-# Function to generate a section (for parallel processing)
-def generate_section(section_name, section_prompt, data_str, word_count):
-    """Generate a single section using the LLM."""
-    try:
-        formatted_prompt = section_prompt.format(data=data_str, word_count=word_count)
-        messages = [{"role": "user", "content": formatted_prompt}]
-        llm_local = _get_llm()
-        if not llm_local:
-            return section_name, "Error generating section: Missing API key (set OPENROUTER_API_KEY or OPENAI_API_KEY)."
-        response = llm_local.invoke(messages)
-        section_text = clean_think_tags(response.content.strip())
-        if section_name == "Key Findings":
-            section_text = format_key_findings(section_text)
-        return section_name, section_text
-    except Exception as e:
-        logging.error(f"Error generating section {section_name}: {str(e)}")
-        return section_name, f"Error generating section: {str(e)}"
 
 # Define the schema for StructuredTool arguments using Pydantic
 class DraftAnswerArgs(BaseModel):
