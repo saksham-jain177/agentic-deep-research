@@ -14,10 +14,11 @@ Researching a topic thoroughly is time-consuming. You need to find sources, eval
 
 This tool automates the research workflow:
 
-1. **Search** — Queries Tavily API for relevant sources (filters out social media noise)
+1. **Search** — Queries Tavily API for relevant sources (filters out social media noise), with parallel variant queries and cross-encoder reranking
 2. **Cache** — Stores results in ChromaDB with semantic search and smart TTL
-3. **Synthesize** — LLM drafts structured reports in your chosen style
-4. **Export** — Download as PDF, Word, Markdown, or BibTeX
+3. **Extract** — Distills raw sources into a structured evidence table that grounds section prompts
+4. **Synthesize** — LLM drafts structured reports in your chosen style; only failed sections are retried, not the whole report
+5. **Export** — Download as PDF, Word, Markdown, or BibTeX
 
 **[Live Demo →](https://deep-research-ai-agent.streamlit.app/)**
 
@@ -32,7 +33,8 @@ flowchart LR
 
     subgraph LangGraph["LangGraph Workflow"]
         R[Research Node]
-        D[Draft Node]
+        E[Evidence Extraction]
+        D[Draft Node<br/>section-level retry]
     end
 
     subgraph Storage
@@ -51,7 +53,8 @@ flowchart LR
     R --> |check cache| V
     R --> |store| V
     R --> |cache query| CA
-    R --> D
+    R --> E
+    E --> |evidence table| D
     D --> |generate| O
     D --> Export[PDF/Word/MD/BibTeX]
 ```
@@ -61,6 +64,10 @@ flowchart LR
 - **Two-node state machine**: Research and Draft are decoupled for testability
 - **Vector memory with TTL**: News content expires in 3 days; evergreen in 30 days
 - **Cross-encoder reranking**: Improves retrieval precision over raw similarity
+- **Evidence table**: Sources are distilled into a structured evidence table that grounds section prompts and inline `[n]` citations (unsupported citations are dropped)
+- **Parallel sub-queries**: Deep-research variant queries run concurrently via ThreadPoolExecutor
+- **Section-level draft retry**: A validation failure regenerates only the failed section, not the whole report
+- **Model fallback chain**: On rate limits or empty responses, drafting moves down `OPENROUTER_FALLBACK_MODELS` and stays there once a fallback works
 - **Domain filtering**: Excludes Reddit, Twitter, TikTok by default
 
 ## Quick Start
@@ -91,8 +98,11 @@ streamlit run app.py
 **Optional:**
 
 ```bash
-ENABLE_VECTOR_STORE=true    # Enable ChromaDB caching
-PREFER_CACHE_RESULTS=false  # Prefer cached over fresh results
+ENABLE_VECTOR_STORE=true       # Enable ChromaDB caching
+PREFER_CACHE_RESULTS=false     # Prefer cached over fresh results
+LLM_MAX_OUTPUT_TOKENS=4000     # Per-call LLM output token cap (default 4000)
+TOKEN_BUDGET_PER_REPORT=12000  # Total prompt-token budget; low-confidence evidence is trimmed to fit
+OPENROUTER_FALLBACK_MODELS=    # Comma-separated fallback model chain for rate limits / empty responses
 ```
 
 ## Configuration
@@ -128,21 +138,32 @@ This tool is **not**:
 ## Limitations
 
 - **Rate limits**: Tavily free tier has daily limits
-- **Model availability**: OpenRouter free models may be rate-limited
-- **Citation accuracy**: Auto-generated citations should be manually verified
+- **Model availability**: OpenRouter free models may be rate-limited (a fallback model chain mitigates this)
+- **Citation accuracy**: Auto-generated citations should be manually verified; inline `[n]` references are checked against the evidence table, but underlying source quality is not judged
 - **Language support**: Best results in English; ES/DE are functional but less tested
+
+## Testing
+
+The test suite (138 tests) runs fully offline — all LLM and Tavily calls are mocked. It covers evidence extraction, citation validation, section-level draft retry, reranking, prompt-injection sanitization, log redaction, token budgets, output-token caps, model fallback, and timeouts.
+
+```bash
+pytest tests/ -v
+```
 
 ## Project Structure
 
 ```
-├── app.py              # Streamlit UI
-├── main.py             # LangGraph workflow orchestration
-├── research_agent.py   # Tavily search + vector store integration
-├── draft_agent.py      # LLM prompting and section generation
-├── vector_store.py     # ChromaDB with reranking and TTL
-├── cost_estimator.py   # Token/cost estimation with uncertainty
-├── citation_formatter.py # APA/MLA/IEEE/BibTeX generation
-└── tests/              # Pytest test suite
+├── app.py                # Streamlit UI
+├── main.py               # LangGraph workflow orchestration
+├── research_agent.py     # Tavily search (parallel variants) + vector store integration
+├── evidence_extractor.py # LLM-assisted distillation of sources into an evidence table
+├── draft_agent.py        # LLM prompting, section generation, retries, fallback chain, cost controls
+├── vector_store.py       # ChromaDB with cross-encoder reranking and TTL
+├── sanitize.py           # Prompt-injection neutralization for fetched web content
+├── log_redaction.py      # API key redaction from logs and session state
+├── cost_estimator.py     # Token/cost estimation with uncertainty
+├── citation_formatter.py # APA/MLA/IEEE/BibTeX generation with citation grounding
+└── tests/                # Pytest suite: 138 tests, all offline (LLM/Tavily mocked)
 ```
 
 ## Contributing
