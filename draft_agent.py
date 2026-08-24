@@ -712,7 +712,7 @@ def draft_answer(
         # verdict summary so readers see what is source-backed.
         try:
             import verification_node
-            verifications = verification_node.verify_report(response_text, data)
+            verifications = verification_node.verify_report(response_text, data, language=language)
             result["verification"] = verifications
             summary_md = verification_node.render_verification_summary(verifications)
             if summary_md:
@@ -728,7 +728,7 @@ def draft_answer(
         # the draft silently average them away. Never blocks drafting.
         try:
             import contradiction_detector
-            contradictions = contradiction_detector.detect_contradictions(data)
+            contradictions = contradiction_detector.detect_contradictions(data, language=language)
             result["contradictions"] = contradictions
             block_md = contradiction_detector.render_contradictions_block(contradictions)
             if block_md:

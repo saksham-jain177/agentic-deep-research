@@ -44,6 +44,17 @@ _llm_cfg = {"api_key": None, "base_url": None, "model": None}
 
 VALID_SEVERITIES = {"high", "medium", "low"}
 
+
+def resolve_contradiction_language(language: str = None) -> str | None:
+    """Pick the language the detector should reason in.
+
+    Priority: explicit `language` argument (the draft's language param) >
+    CONTRADICTION_LANGUAGE env var > None (unspecified; prompt stays in
+    English). Severity enums remain canonical English regardless.
+    """
+    lang = (language or "").strip() or os.getenv("CONTRADICTION_LANGUAGE", "").strip()
+    return lang or None
+
 # Reliability: explicit socket timeout + client-side retries (same env vars
 # and defaults as draft_agent so behavior is uniform across LLM clients).
 DEFAULT_LLM_TIMEOUT_SECONDS = 60
@@ -94,13 +105,29 @@ def _get_llm():
     return llm
 
 
-def build_contradiction_prompt(data: List[Dict[str, Any]]) -> str:
-    """Build the single detection prompt: numbered sources + output contract."""
+def build_contradiction_prompt(
+    data: List[Dict[str, Any]],
+    language: str | None = None,
+) -> str:
+    """Build the single detection prompt: numbered sources + output contract.
+
+    When `language` is set (the draft's language or CONTRADICTION_LANGUAGE),
+    an explicit instruction tells the detector to quote claims and describe
+    topics in that language; severity enums stay canonical English.
+    """
     source_blocks = []
     for idx, item in enumerate(data, 1):
         content = re.sub(r"\s+", " ", str(item.get("content", ""))).strip()[:1500]
         title = str(item.get("title", f"Source {idx}")).strip()
         source_blocks.append(f"[{idx}] {title}\n{content}")
+
+    lang_instruction = ""
+    if language:
+        lang_instruction = (
+            f"\n- Write claim_a, claim_b and topic in {language}. The "
+            f"\"severity\" field MUST still use exactly one of the English "
+            f"enum values above.\n"
+        )
 
     return (
         "You are a contradiction detector. Below are numbered sources for one "
@@ -115,7 +142,8 @@ def build_contradiction_prompt(data: List[Dict[str, Any]]) -> str:
         "- source_id_a / source_id_b MUST be the [n] labels of the sources.\n"
         "- Only report genuine factual conflicts; mere differences in emphasis "
         "or scope are NOT contradictions.\n"
-        "- If there are no conflicts, output [].\n\n"
+        "- If there are no conflicts, output [].\n"
+        f"{lang_instruction}\n"
         "SOURCES:\n" + "\n\n".join(source_blocks)
     )
 
@@ -237,15 +265,22 @@ def detect_contradictions_heuristic(data: List[Dict[str, Any]]) -> List[Dict[str
 
 
 def detect_contradictions(
-    data: List[Dict[str, Any]], retries: int = 2, delay: int = 3
+    data: List[Dict[str, Any]], retries: int = 2, delay: int = 3,
+    language: str | None = None,
 ) -> List[Dict[str, Any]]:
-    """Run ONE detection call per research topic; fall back deterministically."""
+    """Run ONE detection call per research topic; fall back deterministically.
+
+    `language` (or the CONTRADICTION_LANGUAGE env var) makes the detector
+    quote claims in the report's language; severity enums stay canonical.
+    """
     if not data:
         return []
 
     llm_local = _get_llm()
     if llm_local:
-        prompt = build_contradiction_prompt(data)
+        prompt = build_contradiction_prompt(
+            data, language=resolve_contradiction_language(language)
+        )
         last_error = None
         for attempt in range(retries):
             try:
