@@ -45,6 +45,24 @@ _llm_cfg = {"api_key": None, "base_url": None, "model": None}
 
 VALID_VERDICTS = {"supported", "partially_supported", "unsupported"}
 
+
+def resolve_verification_language(language: str = None) -> str | None:
+    """Pick the language the judge should reason in.
+
+    Priority: explicit `language` argument (the draft's language param) >
+    VERIFICATION_LANGUAGE env var > None (unspecified; prompt stays in
+    English). Verdict enums remain canonical English regardless.
+    """
+    lang = (language or "").strip() or os.getenv("VERIFICATION_LANGUAGE", "").strip()
+    return lang or None
+
+
+def resolve_contradiction_language(language: str = None) -> str | None:
+    """Same resolution order for the contradiction detector, using
+    CONTRADICTION_LANGUAGE as its env override."""
+    lang = (language or "").strip() or os.getenv("CONTRADICTION_LANGUAGE", "").strip()
+    return lang or None
+
 # Reliability: explicit socket timeout + client-side retries (same env vars
 # and defaults as draft_agent so behavior is uniform across LLM clients).
 DEFAULT_LLM_TIMEOUT_SECONDS = 60
@@ -97,13 +115,27 @@ def build_verification_prompt(
     section_title: str,
     section_text: str,
     data: List[Dict[str, Any]],
+    language: str | None = None,
 ) -> str:
-    """Build the judge prompt: numbered sources + the section under review."""
+    """Build the judge prompt: numbered sources + the section under review.
+
+    When `language` is set (the draft's language or VERIFICATION_LANGUAGE),
+    an explicit instruction tells the judge to reason in that language;
+    verdict enums stay canonical English either way.
+    """
     source_blocks = []
     for idx, item in enumerate(data, 1):
         content = re.sub(r"\s+", " ", str(item.get("content", ""))).strip()[:1500]
         title = str(item.get("title", f"Source {idx}")).strip()
         source_blocks.append(f"[{idx}] {title}\n{content}")
+
+    lang_instruction = ""
+    if language:
+        lang_instruction = (
+            f"\n- Write your reasoning, notes and any unsupported_claims "
+            f"quotes in {language}. The \"verdict\" field MUST still use "
+            f"exactly one of the English enum values above.\n"
+        )
 
     return (
         "You are a strict fact-verification judge. Below are numbered sources "
@@ -117,7 +149,8 @@ def build_verification_prompt(
         '- "supported": every factual claim traces to a numbered source.\n'
         '- "partially_supported": some claims are backed, others are not.\n'
         '- "unsupported": most claims have no source backing.\n'
-        "- Judge ONLY against the sources given; do not use outside knowledge.\n\n"
+        "- Judge ONLY against the sources given; do not use outside knowledge.\n"
+        f"{lang_instruction}\n"
         f'SECTION TITLE: {section_title}\n\n'
         f"SECTION TEXT:\n{section_text}\n\n"
         "SOURCES:\n" + "\n\n".join(source_blocks)
@@ -178,13 +211,21 @@ def verify_section(
     data: List[Dict[str, Any]],
     retries: int = 2,
     delay: int = 3,
+    language: str | None = None,
 ) -> Dict[str, Any]:
-    """Run ONE judge call per section; fall back deterministically."""
+    """Run ONE judge call per section; fall back deterministically.
+
+    `language` (or the VERIFICATION_LANGUAGE env var) makes the judge
+    reason in the report's language; verdict enums stay canonical English.
+    """
     coverage = compute_citations_coverage(section_text)
 
     llm_local = _get_llm()
     if llm_local:
-        prompt = build_verification_prompt(section_title, section_text, data)
+        prompt = build_verification_prompt(
+            section_title, section_text, data,
+            language=resolve_verification_language(language),
+        )
         last_error = None
         for attempt in range(retries):
             try:
@@ -241,14 +282,19 @@ def heuristic_verdict(
 def verify_report(
     sections: List[Dict[str, Any]],
     data: List[Dict[str, Any]],
+    language: str | None = None,
 ) -> List[Dict[str, Any]]:
-    """Verify every section of a generated report; never raises."""
+    """Verify every section of a generated report; never raises.
+
+    `language` is threaded from the draft's language param so verdicts are
+    judged in the report's language (enums stay canonical English).
+    """
     results = []
     for section in sections:
         title = str(section.get("title", "Untitled")).strip() or "Untitled"
         text = str(section.get("content", ""))
         try:
-            results.append(verify_section(title, text, data))
+            results.append(verify_section(title, text, data, language=language))
         except Exception as e:
             logging.warning(
                 f"Verification crashed for section {title} ({type(e).__name__}: {e}); "
