@@ -11,6 +11,8 @@ import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
+
+import evidence_extractor
 # LangChain 0.1.x StructuredTool requires a pydantic.v1 schema; use it even
 # when pydantic v2 is installed (v2 installs expose the v1 compat layer).
 try:
@@ -439,16 +441,17 @@ def draft_answer(
         return "Error drafting response: Missing API key. Set OPENROUTER_API_KEY (preferred) or OPENAI_API_KEY with OPENAI_BASE_URL."
 
     try:
-        data_str = json.dumps(data)
-        
-        # Add citations to data
-        citations = [format_citation(item, citation_format) for item in data]
-        data_with_citations = {
-            "content": data_str,
-            "citations": citations,
-            "style": writing_style,
-            "language": language
-        }
+        # Evidence extraction pass: ONE cheap LLM call per topic converts the
+        # raw results into a compact evidence table. This replaces injecting
+        # json.dumps(data) into every section prompt (up to 6x duplication of
+        # all source content in deep mode). Falls back deterministically when
+        # no extraction LLM is configured, so drafting is never blocked.
+        try:
+            evidence = evidence_extractor.extract_evidence(data)
+        except Exception as e:
+            logging.warning(f"Evidence extraction crashed, using fallback: {type(e).__name__}: {str(e)}")
+            evidence = evidence_extractor._fallback_evidence(data)
+        data_str = evidence_extractor.render_evidence_table(evidence, data)
 
         # Modify prompts with style and language
         if not deep_research:
@@ -482,7 +485,7 @@ def draft_answer(
             messages = [
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": prompt_template.format(
-                    data=json.dumps(data_with_citations),
+                    data=data_str,
                     word_count=target_word_count // len(sections)
                 )}
             ]
@@ -512,6 +515,9 @@ def draft_answer(
             response_text.append({"title": section_name, "content": section_text})
 
         used_model = os.getenv("OPENROUTER_MODEL") or os.getenv("OPENAI_MODEL") or "unknown"
+        # References are formatted from the numbered sources; Enhancement B
+        # narrows this list to actually-cited ids.
+        citations = [format_citation(item, citation_format) for item in data]
         result = {
             "sections": response_text,
             "references": citations,
