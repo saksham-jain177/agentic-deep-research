@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
 from langchain.tools import Tool
@@ -8,6 +9,11 @@ from urllib.parse import urlparse
 from typing import List, Dict, Any
 
 from sanitize import sanitize_results
+
+# Module logger: propagates to the root logging config set up by draft_agent/
+# evidence_extractor/app (research_agent.log). Avoids bare print() status
+# output so operational events are timestamped, leveled, and filterable.
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env
 load_dotenv()
@@ -19,12 +25,12 @@ if VECTOR_STORE_ENABLED:
     try:
         from vector_store import get_vector_store
         vector_store = get_vector_store()
-        print("Vector store enabled and initialized")
+        logger.info("Vector store enabled and initialized")
     except ImportError:
-        print("Vector store dependencies not installed, proceeding without it")
+        logger.warning("Vector store dependencies not installed, proceeding without it")
         VECTOR_STORE_ENABLED = False
     except Exception as e:
-        print(f"Vector store initialization failed: {e}, proceeding without it")
+        logger.warning(f"Vector store initialization failed: {e}, proceeding without it")
         VECTOR_STORE_ENABLED = False
 
 def research_web(query, deep_research=False, language='en'):
@@ -43,11 +49,11 @@ def research_web(query, deep_research=False, language='en'):
                     language=language,
                     top_k=10 if deep_research else 5
                 )
-                print(f"Found {len(vector_results)} relevant items from vector store")
+                logger.info(f"Found {len(vector_results)} relevant items from vector store")
                 
                 # If we prefer cache and have good results, skip web search
                 if PREFER_CACHE and len(vector_results) >= 5:
-                    print("Using cached results only (PREFER_CACHE_RESULTS=true)")
+                    logger.info("Using cached results only (PREFER_CACHE_RESULTS=true)")
                     return sanitize_results([
                         {
                             "title": r['metadata'].get('title', 'Cached Result'),
@@ -57,7 +63,7 @@ def research_web(query, deep_research=False, language='en'):
                         for r in vector_results
                     ])
             except Exception as e:
-                print(f"Vector search failed: {e}, continuing with web search")
+                logger.warning(f"Vector search failed: {e}, continuing with web search")
         
         api_key = os.getenv("TAVILY_API_KEY")
         if not api_key:
@@ -116,7 +122,7 @@ def research_web(query, deep_research=False, language='en'):
 
         # If deep research mode and fewer than 10 results, try additional queries
         if deep_research and len(data) < 10:
-            print(f"Initial query returned {len(data)} results, attempting additional queries...")
+            logger.info(f"Initial query returned {len(data)} results, attempting additional queries")
             # List of variant queries to broaden the search
             variant_queries = [
                 f"{query} overview OR review OR advancements",
@@ -128,7 +134,7 @@ def research_web(query, deep_research=False, language='en'):
                 try:
                     res = tavily_client.search(variant_query, max_results=max_results, timeout=search_timeout)
                 except Exception as e:
-                    print(f"Variant query failed: {e}, skipping")
+                    logger.warning(f"Variant query failed: {e}, skipping")
                     return []
                 additional_data = []
                 for r in res["results"]:
@@ -162,12 +168,12 @@ def research_web(query, deep_research=False, language='en'):
             if len(fresh) > 1:
                 top_k = int(os.getenv("RERANK_TOP_K", "10"))
                 ranked = rerank_documents(query, fresh, top_k=top_k)
-                print(f"Reranked {len(fresh)} fresh results, kept top {len(ranked)}")
+                logger.info(f"Reranked {len(fresh)} fresh results, kept top {len(ranked)}")
                 data = cached + ranked
         except ImportError:
             pass  # vector store dependencies not installed; keep original order
         except Exception as e:
-            print(f"Reranking failed: {e}, keeping original order")
+            logger.warning(f"Reranking failed: {e}, keeping original order")
 
         # Store results in vector store if enabled
         if VECTOR_STORE_ENABLED and vector_store and data:
@@ -180,9 +186,9 @@ def research_web(query, deep_research=False, language='en'):
                         sources=new_sources,
                         language=language
                     )
-                    print(f"Added {added} new items to vector store")
+                    logger.info(f"Added {added} new items to vector store")
             except Exception as e:
-                print(f"Failed to store in vector DB: {e}")
+                logger.error(f"Failed to store in vector DB: {e}")
         
         # Clean up the from_cache flag before returning
         for item in data:
@@ -196,7 +202,7 @@ def research_web(query, deep_research=False, language='en'):
         if os.getenv("DEBUG_DUMP_RESEARCH", "false").lower() == "true":
             with open("research_data.json", "w") as f:
                 json.dump(data, f, indent=2)
-        print(f"Fetched {len(data)} research items ({len([d for d in data if d.get('from_cache')])} from cache)")
+        logger.info(f"Fetched {len(data)} research items ({len([d for d in data if d.get('from_cache')])} from cache)")
         return data
     except Exception as e:
         raise Exception(f"Research failed: {str(e)}")
