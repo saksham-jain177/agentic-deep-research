@@ -2,6 +2,7 @@
 
 Generate comprehensive research reports on any topic using AI-powered web search and synthesis.
 
+[![Tests](https://github.com/saksham-jain177/agentic-deep-research/actions/workflows/test.yml/badge.svg)](https://github.com/saksham-jain177/agentic-deep-research/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.0+-FF4B4B.svg)](https://streamlit.io)
@@ -22,6 +23,18 @@ This tool automates the research workflow:
 
 **[Live Demo →](https://deep-research-ai-agent.streamlit.app/)**
 
+## Output Quality Guarantees
+
+Every generated report includes:
+- **Verification Summary** — an LLM-as-a-Judge pass scores each section against its sources
+  (supported / partially_supported / unsupported), lists unverified claims, and measures
+  inline-citation coverage.
+- **Conflicting Evidence** — claims that conflict across sources are detected and surfaced
+  explicitly with severity ratings, never silently averaged.
+
+Both passes degrade gracefully: if no judge model is configured, deterministic heuristics
+take over so generation never blocks.
+
 ## Architecture
 
 ```mermaid
@@ -35,6 +48,8 @@ flowchart LR
         R[Research Node]
         E[Evidence Extraction]
         D[Draft Node<br/>section-level retry]
+        VJ[Verification Node<br/>LLM-as-a-Judge]
+        CD[Contradiction Detector]
     end
 
     subgraph Storage
@@ -56,7 +71,12 @@ flowchart LR
     R --> E
     E --> |evidence table| D
     D --> |generate| O
-    D --> Export[PDF/Word/MD/BibTeX]
+    D --> VJ
+    D --> CD
+    VJ --> OUT[Report + Verdicts]
+    CD --> OUT
+    OUT --> Export[PDF/Word/MD/BibTeX]
+    OUT --> COST[Cost Dashboard<br/>tokens/$ per stage]
 ```
 
 **Key Design Decisions:**
@@ -144,7 +164,7 @@ This tool is **not**:
 
 ## Testing
 
-The test suite (180 tests) runs fully offline — all LLM and Tavily calls are mocked. It covers evidence extraction, citation validation, section-level draft retry, reranking, prompt-injection sanitization, log redaction, token budgets, output-token caps, model fallback, and timeouts.
+The test suite (232 offline tests — all LLM and Tavily calls are mocked; the full suite runs without API keys) covers evidence extraction, citation validation, section-level draft retry, reranking, prompt-injection sanitization, log redaction, token budgets, output-token caps, model fallback, and timeouts.
 
 ```bash
 pytest tests/ -v
