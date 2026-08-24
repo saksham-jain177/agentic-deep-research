@@ -67,7 +67,7 @@ def _stream_env(invoke_side_effects, verify=None, contradictions=None,
     if verify is not None:
         if not callable(verify):
             _fixed = verify
-            verify = lambda title, text, data: _fixed
+            verify = lambda title, text, data, **kwargs: _fixed
         cm.append(patch("verification_node.verify_section", side_effect=verify))
     if contradictions is not None:
         cm.append(patch("contradiction_detector.detect_contradictions",
@@ -136,7 +136,7 @@ class TestIncrementalVerification:
         section is yielded, not after one blocking tail pass."""
         order = []
 
-        def verify(title, text, data):
+        def verify(title, text, data, **kwargs):
             order.append(f"verify:{title}")
             return {"section": title, "verdict": "supported",
                     "unsupported_claims": [], "citations_coverage": 1.0,
