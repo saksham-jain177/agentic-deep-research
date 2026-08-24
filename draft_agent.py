@@ -907,7 +907,8 @@ def stream_draft_answer(
         # one blocking tail pass.
         verification = None
         try:
-            verification = verification_node.verify_section(section_name, section_text, data)
+            verification = verification_node.verify_section(section_name, section_text, data,
+                                                             language=language)
         except Exception as ve:
             logging.warning(f"Per-section verification skipped ({type(ve).__name__}: {ve})")
             verification = None
@@ -924,7 +925,7 @@ def stream_draft_answer(
     # Cross-source contradiction pass (inherently spans all sources).
     try:
         import contradiction_detector
-        contradictions = contradiction_detector.detect_contradictions(data)
+        contradictions = contradiction_detector.detect_contradictions(data, language=language)
     except Exception as ce:
         logging.warning(f"Contradiction pass skipped ({type(ce).__name__}: {ce})")
         contradictions = []

@@ -92,7 +92,7 @@ def main() -> int:
     # or trivially-built data using the research agent when available.
     try:
         import research_agent
-        results = research_agent.research(args.query)
+        results = research_agent.research_web(args.query, deep_research=args.deep)
     except Exception as e:
         print(f"Gathering sources failed ({type(e).__name__}: {e}); "
               f"use --mock for an offline demo.", file=sys.stderr)
