@@ -31,6 +31,10 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
+# Redact API-key-shaped secrets from everything written to the log
+from log_redaction import install_redaction_filter
+install_redaction_filter()
+
 # Lazy LLM init so missing keys don't crash on import
 llm = None
 _llm_cfg = {"api_key": None, "base_url": None, "model": None}
