@@ -62,6 +62,8 @@ def _env_int(name: str, default: int) -> int:
 # and defaults as draft_agent so behavior is uniform across LLM clients).
 DEFAULT_LLM_TIMEOUT_SECONDS = 60
 DEFAULT_LLM_MAX_RETRIES = 2
+# Cost control: hard cap on completion size (same env var as draft_agent).
+DEFAULT_LLM_MAX_OUTPUT_TOKENS = 4000
 
 
 def _get_llm():
@@ -86,6 +88,7 @@ def _get_llm():
                 model=model,
                 timeout=_env_int("LLM_TIMEOUT_SECONDS", DEFAULT_LLM_TIMEOUT_SECONDS),
                 max_retries=_env_int("LLM_MAX_RETRIES", DEFAULT_LLM_MAX_RETRIES),
+                max_tokens=_env_int("LLM_MAX_OUTPUT_TOKENS", DEFAULT_LLM_MAX_OUTPUT_TOKENS),
             )
             _llm_cfg = desired
         except Exception as e:
