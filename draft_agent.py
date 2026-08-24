@@ -11,6 +11,8 @@ import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
+
+import evidence_extractor
 # LangChain 0.1.x StructuredTool requires a pydantic.v1 schema; use it even
 # when pydantic v2 is installed (v2 installs expose the v1 compat layer).
 try:
@@ -418,6 +420,45 @@ def paragraphize_analysis(text: str, max_sentences: int = 5) -> str:
             
     return "\n\n".join(final_blocks)
 
+# Matches inline bracketed numeric citations like [1], [2], [12]
+_CITATION_RE = re.compile(r"\[(\d{1,3})\]")
+
+
+def _validate_citations(section_text: str, num_sources: int):
+    """Ground inline [n] citations against the evidence table size.
+
+    Keeps in-range [n] markers as-is, strips any out-of-range ones, and
+    returns (cleaned_text, set_of_valid_cited_ids).
+    """
+    if not isinstance(section_text, str) or num_sources <= 0:
+        return section_text or "", set()
+
+    cited = set()
+
+    def _keep_or_strip(match):
+        n = int(match.group(1))
+        if 1 <= n <= num_sources:
+            cited.add(n)
+            return match.group(0)
+        return ""
+
+    cleaned = _CITATION_RE.sub(_keep_or_strip, section_text)
+    # Tidy whitespace left behind by stripped citations
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+    cleaned = re.sub(r" +([.,;:!?)])", r"\1", cleaned)
+    return cleaned.strip(), cited
+
+
+def _uncited_paragraphs(text: str):
+    """Return indices of paragraphs containing no inline [n] citation."""
+    flagged = []
+    paragraphs = [p for p in re.split(r"\n\s*\n", text or "") if p.strip()]
+    for idx, para in enumerate(paragraphs):
+        if not _CITATION_RE.search(para):
+            flagged.append(idx)
+    return flagged
+
+
 # Drafting function with retry logic and deep research support
 def draft_answer(
     data: List[Dict[str, Any]], 
@@ -438,90 +479,119 @@ def draft_answer(
     if not llm_instance:
         return "Error drafting response: Missing API key. Set OPENROUTER_API_KEY (preferred) or OPENAI_API_KEY with OPENAI_BASE_URL."
 
-    attempt = 0
-    while attempt < retries:
+    try:
+        # Evidence extraction pass: ONE cheap LLM call per topic converts the
+        # raw results into a compact evidence table. This replaces injecting
+        # json.dumps(data) into every section prompt (up to 6x duplication of
+        # all source content in deep mode). Falls back deterministically when
+        # no extraction LLM is configured, so drafting is never blocked.
         try:
-            data_str = json.dumps(data)
-            
-            # Add citations to data
-            citations = [format_citation(item, citation_format) for item in data]
-            data_with_citations = {
-                "content": data_str,
-                "citations": citations,
-                "style": writing_style,
-                "language": language
-            }
-
-            # Modify prompts with style and language
-            if not deep_research:
-                sections = [
-                    ("Key Findings", apply_writing_style(sanitize_template_for_markdown(key_findings_prompt.template), writing_style)),
-                    ("Analysis", apply_writing_style(sanitize_template_for_markdown(analysis_prompt.template), writing_style))
-                ]
-            else:
-                sections = [
-                    ("Abstract", apply_writing_style(sanitize_template_for_markdown(abstract_prompt.template), writing_style)),
-                    ("Introduction", apply_writing_style(sanitize_template_for_markdown(introduction_prompt.template), writing_style)),
-                    ("Literature Review", apply_writing_style(sanitize_template_for_markdown(literature_review_prompt.template), writing_style)),
-                    ("Key Findings", apply_writing_style(sanitize_template_for_markdown(key_findings_prompt.template), writing_style)),
-                    ("Analysis", apply_writing_style(sanitize_template_for_markdown(analysis_prompt.template), writing_style)),
-                    ("Conclusion", apply_writing_style(sanitize_template_for_markdown(conclusion_prompt.template), writing_style))
-                ]
-
-            # Add language instruction and markdown formatting to system message
-            system_message = f"Please provide the response in {language}. "
-            system_message += f"Use {citation_format} citation format when referencing sources.\n"
-            lang_block = LANGUAGE_PROMPTS.get(language.lower())
-            if lang_block:
-                system_message += lang_block + "\n"
-            system_message += (
-                "Format all sections in valid Markdown using appropriate headings and lists. "
-                "Do not use HTML; use Markdown constructs only."
-            )
-
-            response_text = []
-            for section_name, prompt_template in sections:
-                messages = [
-                    {"role": "system", "content": system_message},
-                    {"role": "user", "content": prompt_template.format(
-                        data=json.dumps(data_with_citations),
-                        word_count=target_word_count // len(sections)
-                    )}
-                ]
-                
-                response = llm_instance.invoke(messages)
-                section_text = clean_think_tags(response.content.strip())
-                
-                if section_name == "Key Findings":
-                    section_text = format_key_findings(section_text)
-                # Normalize paragraphs & lists for any language
-                section_text = normalize_markdown(section_text)
-                if section_name == "Analysis":
-                    section_text = paragraphize_analysis(section_text, max_sentences=5)
-                
-                response_text.append({"title": section_name, "content": section_text})
-
-            used_model = os.getenv("OPENROUTER_MODEL") or os.getenv("OPENAI_MODEL") or "unknown"
-            result = {
-                "sections": response_text,
-                "references": citations,
-                "metadata": {
-                    "model": used_model,
-                    "language": language,
-                    "writing_style": writing_style,
-                    "citation_format": citation_format
-                }
-            }
-            return json.dumps(result)
-
+            evidence = evidence_extractor.extract_evidence(data)
         except Exception as e:
-            attempt += 1
-            if attempt < retries:
-                time.sleep(delay)
-                continue
-            return f"Error drafting response: {type(e).__name__} - {str(e)}"
-    
-    return "Error drafting response: Max retries exceeded."
+            logging.warning(f"Evidence extraction crashed, using fallback: {type(e).__name__}: {str(e)}")
+            evidence = evidence_extractor._fallback_evidence(data)
+        data_str = evidence_extractor.render_evidence_table(evidence, data)
+
+        # Modify prompts with style and language
+        if not deep_research:
+            sections = [
+                ("Key Findings", apply_writing_style(sanitize_template_for_markdown(key_findings_prompt.template), writing_style)),
+                ("Analysis", apply_writing_style(sanitize_template_for_markdown(analysis_prompt.template), writing_style))
+            ]
+        else:
+            sections = [
+                ("Abstract", apply_writing_style(sanitize_template_for_markdown(abstract_prompt.template), writing_style)),
+                ("Introduction", apply_writing_style(sanitize_template_for_markdown(introduction_prompt.template), writing_style)),
+                ("Literature Review", apply_writing_style(sanitize_template_for_markdown(literature_review_prompt.template), writing_style)),
+                ("Key Findings", apply_writing_style(sanitize_template_for_markdown(key_findings_prompt.template), writing_style)),
+                ("Analysis", apply_writing_style(sanitize_template_for_markdown(analysis_prompt.template), writing_style)),
+                ("Conclusion", apply_writing_style(sanitize_template_for_markdown(conclusion_prompt.template), writing_style))
+            ]
+
+        # Add language instruction and markdown formatting to system message
+        system_message = f"Please provide the response in {language}. "
+        system_message += f"Use {citation_format} citation format when referencing sources.\n"
+        lang_block = LANGUAGE_PROMPTS.get(language.lower())
+        if lang_block:
+            system_message += lang_block + "\n"
+        system_message += (
+            "Cite sources inline using bracketed numbers like [1] or [2] that refer "
+            "to the numbered sources in the provided evidence table; every factual "
+            "statement should carry a citation. Only cite source numbers that appear "
+            "in the table.\n"
+            "Format all sections in valid Markdown using appropriate headings and lists. "
+            "Do not use HTML; use Markdown constructs only."
+        )
+
+        response_text = []
+        cited_ids = set()
+        for section_name, prompt_template in sections:
+            messages = [
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt_template.format(
+                    data=data_str,
+                    word_count=target_word_count // len(sections)
+                )}
+            ]
+
+            # Per-section retry: only the failed section is regenerated,
+            # already-completed sections are kept as-is.
+            last_error = None
+            for _section_attempt in range(retries):
+                try:
+                    response = llm_instance.invoke(messages)
+                    break
+                except Exception as e:
+                    last_error = e
+                    if _section_attempt < retries - 1:
+                        time.sleep(delay)
+            else:
+                raise last_error
+            section_text = clean_think_tags(response.content.strip())
+            
+            if section_name == "Key Findings":
+                section_text = format_key_findings(section_text)
+            # Normalize paragraphs & lists for any language
+            section_text = normalize_markdown(section_text)
+            if section_name == "Analysis":
+                section_text = paragraphize_analysis(section_text, max_sentences=5)
+
+            # Enhancement B: ground inline citations. Strip out-of-range [n]
+            # refs, track which source ids were genuinely cited, and flag
+            # paragraphs that carry no citation at all.
+            num_sources = len(data)
+            section_text, sec_cited = _validate_citations(section_text, num_sources)
+            if sec_cited:
+                cited_ids |= sec_cited
+            uncited = _uncited_paragraphs(section_text)
+            if uncited:
+                logging.warning(
+                    f"{section_name}: {len(uncited)} paragraph(s) lack inline [n] citations"
+                )
+
+            response_text.append({"title": section_name, "content": section_text})
+
+        used_model = os.getenv("OPENROUTER_MODEL") or os.getenv("OPENAI_MODEL") or "unknown"
+        # References are rendered from the ids ACTUALLY cited inline, so the
+        # bibliography never lists a source the report body doesn't support.
+        citations = [
+            format_citation(data[i - 1], citation_format) for i in sorted(cited_ids)
+        ]
+        result = {
+            "sections": response_text,
+            "references": citations,
+            "metadata": {
+                "model": used_model,
+                "language": language,
+                "writing_style": writing_style,
+                "citation_format": citation_format
+            }
+        }
+        return json.dumps(result)
+
+    except Exception as e:
+        return f"Error drafting response: {type(e).__name__} - {str(e)}"
+
 
 # Define the tool with support for deep research and target word count using StructuredTool
 draft_tool = StructuredTool.from_function(
