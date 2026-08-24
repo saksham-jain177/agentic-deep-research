@@ -144,7 +144,7 @@ This tool is **not**:
 
 ## Testing
 
-The test suite (138 tests) runs fully offline — all LLM and Tavily calls are mocked. It covers evidence extraction, citation validation, section-level draft retry, reranking, prompt-injection sanitization, log redaction, token budgets, output-token caps, model fallback, and timeouts.
+The test suite (180 tests) runs fully offline — all LLM and Tavily calls are mocked. It covers evidence extraction, citation validation, section-level draft retry, reranking, prompt-injection sanitization, log redaction, token budgets, output-token caps, model fallback, and timeouts.
 
 ```bash
 pytest tests/ -v
@@ -163,7 +163,7 @@ pytest tests/ -v
 ├── log_redaction.py      # API key redaction from logs and session state
 ├── cost_estimator.py     # Token/cost estimation with uncertainty
 ├── citation_formatter.py # APA/MLA/IEEE/BibTeX generation with citation grounding
-└── tests/                # Pytest suite: 138 tests, all offline (LLM/Tavily mocked)
+└── tests/                # Pytest suite: 180 tests, all offline (LLM/Tavily mocked)
 ```
 
 ## Contributing
