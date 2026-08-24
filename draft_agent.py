@@ -420,6 +420,45 @@ def paragraphize_analysis(text: str, max_sentences: int = 5) -> str:
             
     return "\n\n".join(final_blocks)
 
+# Matches inline bracketed numeric citations like [1], [2], [12]
+_CITATION_RE = re.compile(r"\[(\d{1,3})\]")
+
+
+def _validate_citations(section_text: str, num_sources: int):
+    """Ground inline [n] citations against the evidence table size.
+
+    Keeps in-range [n] markers as-is, strips any out-of-range ones, and
+    returns (cleaned_text, set_of_valid_cited_ids).
+    """
+    if not isinstance(section_text, str) or num_sources <= 0:
+        return section_text or "", set()
+
+    cited = set()
+
+    def _keep_or_strip(match):
+        n = int(match.group(1))
+        if 1 <= n <= num_sources:
+            cited.add(n)
+            return match.group(0)
+        return ""
+
+    cleaned = _CITATION_RE.sub(_keep_or_strip, section_text)
+    # Tidy whitespace left behind by stripped citations
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+    cleaned = re.sub(r" +([.,;:!?)])", r"\1", cleaned)
+    return cleaned.strip(), cited
+
+
+def _uncited_paragraphs(text: str):
+    """Return indices of paragraphs containing no inline [n] citation."""
+    flagged = []
+    paragraphs = [p for p in re.split(r"\n\s*\n", text or "") if p.strip()]
+    for idx, para in enumerate(paragraphs):
+        if not _CITATION_RE.search(para):
+            flagged.append(idx)
+    return flagged
+
+
 # Drafting function with retry logic and deep research support
 def draft_answer(
     data: List[Dict[str, Any]], 
@@ -476,11 +515,16 @@ def draft_answer(
         if lang_block:
             system_message += lang_block + "\n"
         system_message += (
+            "Cite sources inline using bracketed numbers like [1] or [2] that refer "
+            "to the numbered sources in the provided evidence table; every factual "
+            "statement should carry a citation. Only cite source numbers that appear "
+            "in the table.\n"
             "Format all sections in valid Markdown using appropriate headings and lists. "
             "Do not use HTML; use Markdown constructs only."
         )
 
         response_text = []
+        cited_ids = set()
         for section_name, prompt_template in sections:
             messages = [
                 {"role": "system", "content": system_message},
@@ -511,13 +555,28 @@ def draft_answer(
             section_text = normalize_markdown(section_text)
             if section_name == "Analysis":
                 section_text = paragraphize_analysis(section_text, max_sentences=5)
-            
+
+            # Enhancement B: ground inline citations. Strip out-of-range [n]
+            # refs, track which source ids were genuinely cited, and flag
+            # paragraphs that carry no citation at all.
+            num_sources = len(data)
+            section_text, sec_cited = _validate_citations(section_text, num_sources)
+            if sec_cited:
+                cited_ids |= sec_cited
+            uncited = _uncited_paragraphs(section_text)
+            if uncited:
+                logging.warning(
+                    f"{section_name}: {len(uncited)} paragraph(s) lack inline [n] citations"
+                )
+
             response_text.append({"title": section_name, "content": section_text})
 
         used_model = os.getenv("OPENROUTER_MODEL") or os.getenv("OPENAI_MODEL") or "unknown"
-        # References are formatted from the numbered sources; Enhancement B
-        # narrows this list to actually-cited ids.
-        citations = [format_citation(item, citation_format) for item in data]
+        # References are rendered from the ids ACTUALLY cited inline, so the
+        # bibliography never lists a source the report body doesn't support.
+        citations = [
+            format_citation(data[i - 1], citation_format) for i in sorted(cited_ids)
+        ]
         result = {
             "sections": response_text,
             "references": citations,
