@@ -348,3 +348,12 @@ def estimate_research_cost(
     estimator = get_estimator()
     result = estimator.estimate(query, deep_research, target_word_count, model)
     return result.to_dict()
+
+
+def count_text_tokens(text: str) -> int:
+    """Count tokens in arbitrary text (tiktoken if available, heuristic fallback)."""
+    estimator = get_estimator()
+    exact = estimator._count_tokens_tiktoken(text)
+    if exact is None:
+        return estimator._count_tokens_heuristic(text)
+    return exact

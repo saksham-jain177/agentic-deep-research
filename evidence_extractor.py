@@ -31,6 +31,10 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
+# Redact API-key-shaped secrets from everything written to the log
+from log_redaction import install_redaction_filter
+install_redaction_filter()
+
 # Lazy LLM init so missing keys don't crash on import
 llm = None
 _llm_cfg = {"api_key": None, "base_url": None, "model": None}
@@ -43,6 +47,23 @@ MAX_QUOTE_CHARS = 200
 MAX_SOURCE_CHARS = 1500
 
 VALID_CONFIDENCE = {"high", "medium", "low"}
+
+
+def _env_int(name: str, default: int) -> int:
+    """Read a positive int from the environment, falling back to default."""
+    try:
+        value = int(os.getenv(name, str(default)))
+        return value if value > 0 else default
+    except ValueError:
+        return default
+
+
+# Reliability: explicit socket timeout + client-side retries (same env vars
+# and defaults as draft_agent so behavior is uniform across LLM clients).
+DEFAULT_LLM_TIMEOUT_SECONDS = 60
+DEFAULT_LLM_MAX_RETRIES = 2
+# Cost control: hard cap on completion size (same env var as draft_agent).
+DEFAULT_LLM_MAX_OUTPUT_TOKENS = 4000
 
 
 def _get_llm():
@@ -61,7 +82,14 @@ def _get_llm():
     desired = {"api_key": api_key, "base_url": base_url, "model": model}
     if llm is None or any(_llm_cfg.get(k) != v for k, v in desired.items()):
         try:
-            llm = ChatOpenAI(api_key=api_key, base_url=base_url, model=model)
+            llm = ChatOpenAI(
+                api_key=api_key,
+                base_url=base_url,
+                model=model,
+                timeout=_env_int("LLM_TIMEOUT_SECONDS", DEFAULT_LLM_TIMEOUT_SECONDS),
+                max_retries=_env_int("LLM_MAX_RETRIES", DEFAULT_LLM_MAX_RETRIES),
+                max_tokens=_env_int("LLM_MAX_OUTPUT_TOKENS", DEFAULT_LLM_MAX_OUTPUT_TOKENS),
+            )
             _llm_cfg = desired
         except Exception as e:
             logging.error(f"Failed to initialize evidence extractor LLM: {type(e).__name__}: {str(e)}")

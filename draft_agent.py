@@ -6,13 +6,14 @@ from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.tools import StructuredTool
 import requests
-from openai import APIConnectionError
+from openai import APIConnectionError, RateLimitError
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
 
 import evidence_extractor
+import cost_estimator
 # LangChain 0.1.x StructuredTool requires a pydantic.v1 schema; use it even
 # when pydantic v2 is installed (v2 installs expose the v1 compat layer).
 try:
@@ -20,10 +21,14 @@ try:
 except ImportError:  # pydantic < 2 installed
     from pydantic import BaseModel, Field
 from urllib.parse import urlparse
-from datetime import datetime
+from datetime import date, datetime
 
 # Set up logging
 logging.basicConfig(filename="research_agent.log", level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
+# Redact API-key-shaped secrets from everything written to the log
+from log_redaction import install_redaction_filter
+install_redaction_filter()
 
 # Load environment variables from .env
 load_dotenv()
@@ -31,6 +36,30 @@ load_dotenv()
 # Lazy LLM init so missing keys don't crash on import
 llm = None
 _llm_cfg = {"api_key": None, "base_url": None, "model": None}
+
+def _env_int(name: str, default: int) -> int:
+    """Read a positive int from the environment, falling back to default."""
+    try:
+        value = int(os.getenv(name, str(default)))
+        return value if value > 0 else default
+    except ValueError:
+        return default
+
+# Reliability: every LLM HTTP call gets an explicit socket timeout and client-
+# side retry budget instead of hanging indefinitely (env-configurable).
+DEFAULT_LLM_TIMEOUT_SECONDS = 60
+DEFAULT_LLM_MAX_RETRIES = 2
+# Cost control: hard cap on completion size for every ChatOpenAI client.
+DEFAULT_LLM_MAX_OUTPUT_TOKENS = 4000
+
+
+def _llm_network_kwargs() -> dict:
+    """Shared ChatOpenAI kwargs: request timeout + client-side retries."""
+    return {
+        "timeout": _env_int("LLM_TIMEOUT_SECONDS", DEFAULT_LLM_TIMEOUT_SECONDS),
+        "max_retries": _env_int("LLM_MAX_RETRIES", DEFAULT_LLM_MAX_RETRIES),
+        "max_tokens": _env_int("LLM_MAX_OUTPUT_TOKENS", DEFAULT_LLM_MAX_OUTPUT_TOKENS),
+    }
 
 def _get_llm():
     """Return a configured ChatOpenAI instance or None if keys are missing.
@@ -48,12 +77,112 @@ def _get_llm():
     # Rebuild the LLM client if config changed (e.g., user switched models)
     if llm is None or any(_llm_cfg.get(k) != v for k, v in desired.items()):
         try:
-            llm = ChatOpenAI(api_key=api_key, base_url=base_url, model=model)
+            llm = ChatOpenAI(api_key=api_key, base_url=base_url, model=model, **_llm_network_kwargs())
             _llm_cfg = desired
         except Exception as e:
             logging.error(f"Failed to initialize LLM: {type(e).__name__}: {str(e)}")
             llm = None
     return llm
+
+def _get_fallback_models():
+    """Parse OPENROUTER_FALLBACK_MODELS (comma-separated) into a clean list."""
+    models = []
+    for model in os.getenv("OPENROUTER_FALLBACK_MODELS", "").split(","):
+        model = model.strip()
+        if model and model not in models:
+            models.append(model)
+    return models
+
+def _llm_for_model(model: str):
+    """Build a ChatOpenAI client for a specific model in the fallback chain."""
+    api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
+    base_url = os.getenv("OPENAI_BASE_URL") or "https://openrouter.ai/api/v1"
+    return ChatOpenAI(api_key=api_key, base_url=base_url, model=model, **_llm_network_kwargs())
+
+def _should_advance_model_chain(error: Exception) -> bool:
+    """True for rate-limit / empty-response failures worth a different model.
+
+    Any other error (auth, network) stays on the current model and uses the
+    plain retry loop instead.
+    """
+    message = str(error).lower()
+    return (
+        isinstance(error, RateLimitError)
+        or "429" in str(error)
+        or "rate limit" in message
+        or "empty response" in message
+    )
+
+# --- Token budget guard (cost control) ---
+# Projected input tokens for one full report (evidence table x sections +
+# template overhead) must stay under this cap. Override with the
+# TOKEN_BUDGET_PER_REPORT env var. When over budget, lowest-confidence
+# evidence rows are trimmed first until the projection fits.
+DEFAULT_TOKEN_BUDGET_PER_REPORT = 12000
+
+_CONFIDENCE_RANK = {"low": 0, "medium": 1, "high": 2}
+
+
+def get_token_budget() -> int:
+    """Read TOKEN_BUDGET_PER_REPORT from the environment, with safe default."""
+    raw = os.getenv("TOKEN_BUDGET_PER_REPORT")
+    if raw is None:
+        return DEFAULT_TOKEN_BUDGET_PER_REPORT
+    try:
+        value = int(raw)
+        if value <= 0:
+            raise ValueError
+        return value
+    except ValueError:
+        logging.warning(f"Invalid TOKEN_BUDGET_PER_REPORT={raw!r}; using default {DEFAULT_TOKEN_BUDGET_PER_REPORT}")
+        return DEFAULT_TOKEN_BUDGET_PER_REPORT
+
+
+def _projected_input_tokens(evidence, data, deep_research, num_sections) -> int:
+    """Estimate total input tokens for drafting: evidence table per section."""
+    table_str = evidence_extractor.render_evidence_table(evidence, data)
+    mode = "deep" if deep_research else "shallow"
+    overhead = cost_estimator.TEMPLATE_OVERHEAD[mode] * max(num_sections, 1)
+    return cost_estimator.count_text_tokens(table_str) + overhead
+
+
+def enforce_token_budget(
+    evidence: List[Dict[str, Any]],
+    data: List[Dict[str, Any]],
+    deep_research: bool,
+    num_sections: int,
+    budget: int = None,
+):
+    """Trim lowest-confidence evidence rows until the projected prompt fits.
+
+    Rows are dropped one at a time, lowest confidence first (low -> medium ->
+    high; ties broken by original order), re-projecting after each drop.
+    Returns (trimmed_evidence, info_dict) where info reports how many rows
+    were dropped and the final projection.
+    """
+    if budget is None:
+        budget = get_token_budget()
+    trimmed = list(evidence or [])
+    dropped = []
+    projected = _projected_input_tokens(trimmed, data, deep_research, num_sections)
+
+    while projected > budget and trimmed:
+        min_rank = min(_CONFIDENCE_RANK.get(row.get("confidence", "medium"), 1) for row in trimmed)
+        idx = next(
+            i for i, row in enumerate(trimmed)
+            if _CONFIDENCE_RANK.get(row.get("confidence", "medium"), 1) == min_rank
+        )
+        dropped.append(trimmed.pop(idx))
+        projected = _projected_input_tokens(trimmed, data, deep_research, num_sections)
+
+    if dropped:
+        logging.info(
+            f"Token budget {budget}: trimmed {len(dropped)} low-confidence evidence "
+            f"row(s); projected input tokens now ~{projected}"
+        )
+    info = {"budget": budget, "dropped": len(dropped), "dropped_rows": dropped, "projected_tokens": projected}
+    return trimmed, info
+
 
 # Writing style templates following industry standards
 STYLE_TEMPLATES = {
@@ -85,67 +214,6 @@ def apply_writing_style(prompt: str, style: str) -> str:
     """Apply writing style to prompt template."""
     style_config = STYLE_TEMPLATES.get(style, STYLE_TEMPLATES["academic"])
     return prompt + f"\n\nUse a {style_config['tone']} tone with {style_config['vocabulary']}, following a {style_config['structure']}."
-
-# Prompts for shallow research mode
-def get_shallow_word_counts(target_word_count):
-    """Distribute the target word count across sections in shallow mode."""
-    intro = max(50, int(target_word_count * 0.25))  # 25%
-    findings = max(75, int(target_word_count * 0.35))  # 35%
-    analysis = max(50, int(target_word_count * 0.25))  # 25%
-    conclusion = max(25, int(target_word_count * 0.15))  # 15%
-    return intro, findings, analysis, conclusion
-
-shallow_introduction_prompt = PromptTemplate(
-    input_variables=["data", "word_count"],
-    template="""
-    Generate a concise introduction for a research summary based on the following data. Briefly introduce the topic and its significance in approximately {word_count} words, focusing on clarity and understanding with minimal context. Do not include the word "Introduction" in your response; only provide the content of the introduction section. Do not include any internal reasoning tags like <think> or similar markers in your response; only provide the final content.
-
-    Data: {data}
-    """
-)
-
-shallow_key_findings_prompt = PromptTemplate(
-    input_variables=["data", "word_count"],
-    template="""
-    Generate a concise key findings section for a research summary based on the following data. Summarize the main points in a numbered list (3-5 points, approximately {word_count} words total), focusing on clarity and understanding with minimal context. Each numbered point must be on a new line with a newline character (\n) between points (e.g., 1. First finding.\n2. Second finding.\n3. Third finding.). Ensure there is a space after each number and period (e.g., "1. " not "1."). Do not include the phrase "Key Findings" in your response; only provide the content of the key findings section. Do not include any internal reasoning tags like <think> or similar markers in your response; only provide the final content.
-
-    Data: {data}
-    """
-)
-
-shallow_analysis_prompt = PromptTemplate(
-    input_variables=["data", "word_count"],
-    template="""
-    Generate a concise analysis section for a research summary based on the following data. Structure your analysis exactly as follows, with each section clearly marked:
-
-    [PARA1]
-    Initial assessment (~75 words): Provide primary observations and immediate implications.
-    [/PARA1]
-
-    [PARA2]
-    Detailed examination (~50 words): Explore key patterns and relationships.
-    [/PARA2]
-
-    [PARA3]
-    Critical insights (~50 words): Discuss significant findings and their impact.
-    [/PARA3]
-
-    [PARA4]
-    Future implications (~25 words): Brief outlook on potential developments.
-    [/PARA4]
-
-    Data: {data}
-    """
-)
-
-shallow_conclusion_prompt = PromptTemplate(
-    input_variables=["data", "word_count"],
-    template="""
-    Generate a concise conclusion section for a research summary based on the following data. Conclude with a short statement on potential future developments or recommendations in approximately {word_count} words, focusing on clarity and understanding with minimal context. Do not include the word "Conclusion" in your response; only provide the content of the conclusion section. Do not include any internal reasoning tags like <think> or similar markers in your response; only provide the final content.
-
-    Data: {data}
-    """
-)
 
 # Prompts for each section in deep research mode
 def get_deep_word_counts(target_word_count):
@@ -235,24 +303,6 @@ def format_key_findings(text):
     formatted_text = re.sub(r"\n{2,}", "\n", formatted_text)
     return formatted_text
 
-# Function to generate a section (for parallel processing)
-def generate_section(section_name, section_prompt, data_str, word_count):
-    """Generate a single section using the LLM."""
-    try:
-        formatted_prompt = section_prompt.format(data=data_str, word_count=word_count)
-        messages = [{"role": "user", "content": formatted_prompt}]
-        llm_local = _get_llm()
-        if not llm_local:
-            return section_name, "Error generating section: Missing API key (set OPENROUTER_API_KEY or OPENAI_API_KEY)."
-        response = llm_local.invoke(messages)
-        section_text = clean_think_tags(response.content.strip())
-        if section_name == "Key Findings":
-            section_text = format_key_findings(section_text)
-        return section_name, section_text
-    except Exception as e:
-        logging.error(f"Error generating section {section_name}: {str(e)}")
-        return section_name, f"Error generating section: {str(e)}"
-
 # Define the schema for StructuredTool arguments using Pydantic
 class DraftAnswerArgs(BaseModel):
     data: List[Dict[str, Any]] = Field(description="List of research data dictionaries containing title, content, and url")
@@ -317,22 +367,62 @@ LANGUAGE_PROMPTS = {
         - 保持正式的学术语气""",
 }
 
+def _parse_publication_date(value) -> date | None:
+    """Defensively coerce a publication date into a `date`.
+
+    Accepts date objects, ISO strings ("2024-01-15"), and bare years
+    ("2024"); anything unparseable becomes None so citation formatting
+    degrades to (n.d.) instead of crashing.
+    """
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        try:
+            return date.fromisoformat(text[:10])
+        except ValueError:
+            match = re.search(r"\d{4}", text)
+            if match:
+                return date(int(match.group()), 1, 1)
+    return None
+
 def format_citation(source_dict: Dict[str, str], style: str) -> str:
     """Format citation based on selected style using the CitationFormatter engine."""
     try:
         from citation_formatter import CitationFormatter, Source
-        
-        # Create source object from dict
+
+        # Map research-result dict keys to Source fields. Sources built by
+        # research_agent carry title/url/content; author info may arrive as a
+        # single string ("author") or a list ("authors").
+        authors = source_dict.get("authors")
+        if not authors:
+            authors = source_dict.get("author")
+        if not authors:
+            authors = None
+        elif isinstance(authors, str):
+            authors = [authors]
+
         source = Source(
-            title=source_dict.get('title', 'Unknown Title'),
-            url=source_dict.get('url', ''),
-            author=source_dict.get('author'),
+            title=str(source_dict.get('title') or 'Unknown Title'),
+            url=str(source_dict.get('url') or ''),
+            authors=authors,
             publisher=source_dict.get('publisher'),
-            date=source_dict.get('date')
+            publication_date=_parse_publication_date(
+                source_dict.get('publication_date', source_dict.get('date'))
+            ),
         )
-        
-        formatter = CitationFormatter()
-        return formatter.format_single(source, style)
+
+        formatter = CitationFormatter([source])
+        style_lower = (style or "APA").lower()
+        if style_lower == "mla":
+            return formatter.format_mla()
+        if style_lower == "ieee":
+            return formatter.format_ieee()
+        if style_lower == "bibtex":
+            return formatter.format_bibtex()
+        return formatter.format_apa()
     except Exception as e:
         logging.error(f"Error in professional citation formatting: {e}")
         # Fallback to simple formatting if module fails
@@ -490,6 +580,12 @@ def draft_answer(
         except Exception as e:
             logging.warning(f"Evidence extraction crashed, using fallback: {type(e).__name__}: {str(e)}")
             evidence = evidence_extractor._fallback_evidence(data)
+
+        # Cost guard: keep the projected input tokens (evidence table x
+        # sections + template overhead) under TOKEN_BUDGET_PER_REPORT by
+        # dropping lowest-confidence evidence rows first.
+        num_sections = 6 if deep_research else 2
+        evidence, _budget_info = enforce_token_budget(evidence, data, deep_research, num_sections)
         data_str = evidence_extractor.render_evidence_table(evidence, data)
 
         # Modify prompts with style and language
@@ -525,6 +621,16 @@ def draft_answer(
 
         response_text = []
         cited_ids = set()
+
+        # Cost/reliability: model fallback chain. Primary model first, then
+        # OPENROUTER_FALLBACK_MODELS. Free OpenRouter endpoints 429 often, so
+        # on rate-limit or empty responses we permanently advance to the next
+        # model in the chain (once a fallback works, later sections keep it).
+        primary_model = os.getenv("OPENROUTER_MODEL") or os.getenv("OPENAI_MODEL") or "unknown"
+        model_chain = [primary_model] + [m for m in _get_fallback_models() if m != primary_model]
+        current_llm = llm_instance
+        current_model_idx = 0
+
         for section_name, prompt_template in sections:
             messages = [
                 {"role": "system", "content": system_message},
@@ -539,11 +645,22 @@ def draft_answer(
             last_error = None
             for _section_attempt in range(retries):
                 try:
-                    response = llm_instance.invoke(messages)
+                    response = current_llm.invoke(messages)
+                    if not clean_think_tags(response.content.strip()):
+                        raise ValueError("empty response from model")
                     break
                 except Exception as e:
                     last_error = e
-                    if _section_attempt < retries - 1:
+                    if _should_advance_model_chain(e) and current_model_idx < len(model_chain) - 1:
+                        next_model = model_chain[current_model_idx + 1]
+                        logging.warning(
+                            f"Model {model_chain[current_model_idx]} failed for section "
+                            f"{section_name} ({type(e).__name__}); advancing to fallback "
+                            f"model {next_model}"
+                        )
+                        current_llm = _llm_for_model(next_model)
+                        current_model_idx += 1
+                    elif _section_attempt < retries - 1:
                         time.sleep(delay)
             else:
                 raise last_error
@@ -571,7 +688,9 @@ def draft_answer(
 
             response_text.append({"title": section_name, "content": section_text})
 
-        used_model = os.getenv("OPENROUTER_MODEL") or os.getenv("OPENAI_MODEL") or "unknown"
+        # Report the model that actually produced the draft (may be a
+        # fallback after rate limits on the primary).
+        used_model = model_chain[current_model_idx]
         # References are rendered from the ids ACTUALLY cited inline, so the
         # bibliography never lists a source the report body doesn't support.
         citations = [

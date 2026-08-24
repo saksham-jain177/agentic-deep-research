@@ -49,7 +49,7 @@ def test_research_web_reranks_fresh_results(monkeypatch):
 
     monkeypatch.setenv("RERANK_TOP_K", "2")
 
-    def fake_search(query, max_results=5):
+    def fake_search(query, max_results=5, timeout=60, **kwargs):
         n = int(query[-1])  # distinct docs per query variant
         return {
             "results": [

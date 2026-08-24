@@ -23,6 +23,10 @@ from docx.shared import Pt, Inches
 # Set up logging
 logging.basicConfig(filename="research_agent.log", level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
+# Redact API-key-shaped secrets from everything written to the log
+from log_redaction import install_redaction_filter
+install_redaction_filter()
+
 # Initialize all session state variables at the top
 if "research_data" not in st.session_state:
     st.session_state.research_data = None
@@ -1094,6 +1098,12 @@ if missing_keys:
                     updates.setdefault("OPENAI_BASE_URL", os.getenv("OPENAI_BASE_URL") or "https://openrouter.ai/api/v1")
                 if _persist_keys_to_env(updates):
                     st.success("Saved to .env. Please rerun.")
+            # Secrets hygiene: Streamlit keeps every widget value in
+            # st.session_state (under the widget keys). Scrub them so raw API
+            # keys never linger in session-state dumps or debug views; keys
+            # only live in os.environ / .env from here on.
+            for _k in ("tavily_key_input", "router_key_input"):
+                st.session_state.pop(_k, None)
             st.success("API keys saved for this session.")
             # Safe rerun across Streamlit versions
             try:
@@ -1115,6 +1125,9 @@ else:
             for k in ["TAVILY_API_KEY","OPENROUTER_API_KEY","OPENAI_API_KEY"]:
                 if k in os.environ:
                     os.environ.pop(k)
+            # Also scrub any key material left in session state
+            for _k in ("tavily_key_input", "router_key_input"):
+                st.session_state.pop(_k, None)
             try:
                 st.rerun()
             except Exception:
