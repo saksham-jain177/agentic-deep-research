@@ -723,6 +723,22 @@ def draft_answer(
         except Exception as ve:
             logging.warning(f"Verification pass skipped ({type(ve).__name__}: {ve})")
 
+        # Tier 3: contradiction surfacing. Detect conflicting claims across
+        # sources and append them explicitly to the report instead of letting
+        # the draft silently average them away. Never blocks drafting.
+        try:
+            import contradiction_detector
+            contradictions = contradiction_detector.detect_contradictions(data)
+            result["contradictions"] = contradictions
+            block_md = contradiction_detector.render_contradictions_block(contradictions)
+            if block_md:
+                response_text.append({
+                    "title": "Conflicting Evidence",
+                    "content": block_md
+                })
+        except Exception as ce:
+            logging.warning(f"Contradiction pass skipped ({type(ce).__name__}: {ce})")
+
         return json.dumps(result)
 
     except Exception as e:
