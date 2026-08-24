@@ -129,6 +129,8 @@ def test_out_of_range_refs_stripped_from_final_sections(citing_llm):
 
     for section in result["sections"]:
         assert "[5]" not in section["content"]
+        if section["title"] == "Verification Summary":
+            continue  # judge block summarizes verdicts; it carries no [n] refs
         assert "[1]" in section["content"]
     assert len(result["references"]) == 1
 

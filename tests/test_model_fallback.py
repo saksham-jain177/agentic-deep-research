@@ -104,6 +104,7 @@ def test_chain_advances_on_rate_limit(chain_env):
     assert [s["title"] for s in result["sections"]] == [
         "Abstract", "Introduction", "Literature Review",
         "Key Findings", "Analysis", "Conclusion",
+        "Verification Summary",  # tier 3 judge pass appends its own block
     ]
     assert requested == ["fb-a"]  # spaces stripped; fb-b never needed
     assert primary.calls == 1
@@ -115,7 +116,7 @@ def test_stays_on_primary_when_healthy(chain_env):
     requested = chain_env(lambda: primary)
     result = _draft()
 
-    assert len(result["sections"]) == 6
+    assert len(result["sections"]) == 7  # 6 sections + Verification Summary block
     assert requested == []  # no fallback client ever constructed
     assert primary.calls == 6
     assert result["metadata"]["model"] == "primary-model"

@@ -706,6 +706,23 @@ def draft_answer(
                 "citation_format": citation_format
             }
         }
+
+        # Tier 3: LLM-as-a-Judge verification pass over the generated
+        # sections. Never blocks drafting; appends an explicit per-section
+        # verdict summary so readers see what is source-backed.
+        try:
+            import verification_node
+            verifications = verification_node.verify_report(response_text, data)
+            result["verification"] = verifications
+            summary_md = verification_node.render_verification_summary(verifications)
+            if summary_md:
+                response_text.append({
+                    "title": "Verification Summary",
+                    "content": summary_md
+                })
+        except Exception as ve:
+            logging.warning(f"Verification pass skipped ({type(ve).__name__}: {ve})")
+
         return json.dumps(result)
 
     except Exception as e:
