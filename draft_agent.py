@@ -21,7 +21,7 @@ try:
 except ImportError:  # pydantic < 2 installed
     from pydantic import BaseModel, Field
 from urllib.parse import urlparse
-from datetime import datetime
+from datetime import date, datetime
 
 # Set up logging
 logging.basicConfig(filename="research_agent.log", level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -443,22 +443,62 @@ LANGUAGE_PROMPTS = {
         - 保持正式的学术语气""",
 }
 
+def _parse_publication_date(value) -> date | None:
+    """Defensively coerce a publication date into a `date`.
+
+    Accepts date objects, ISO strings ("2024-01-15"), and bare years
+    ("2024"); anything unparseable becomes None so citation formatting
+    degrades to (n.d.) instead of crashing.
+    """
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        try:
+            return date.fromisoformat(text[:10])
+        except ValueError:
+            match = re.search(r"\d{4}", text)
+            if match:
+                return date(int(match.group()), 1, 1)
+    return None
+
 def format_citation(source_dict: Dict[str, str], style: str) -> str:
     """Format citation based on selected style using the CitationFormatter engine."""
     try:
         from citation_formatter import CitationFormatter, Source
-        
-        # Create source object from dict
+
+        # Map research-result dict keys to Source fields. Sources built by
+        # research_agent carry title/url/content; author info may arrive as a
+        # single string ("author") or a list ("authors").
+        authors = source_dict.get("authors")
+        if not authors:
+            authors = source_dict.get("author")
+        if not authors:
+            authors = None
+        elif isinstance(authors, str):
+            authors = [authors]
+
         source = Source(
-            title=source_dict.get('title', 'Unknown Title'),
-            url=source_dict.get('url', ''),
-            author=source_dict.get('author'),
+            title=str(source_dict.get('title') or 'Unknown Title'),
+            url=str(source_dict.get('url') or ''),
+            authors=authors,
             publisher=source_dict.get('publisher'),
-            date=source_dict.get('date')
+            publication_date=_parse_publication_date(
+                source_dict.get('publication_date', source_dict.get('date'))
+            ),
         )
-        
-        formatter = CitationFormatter()
-        return formatter.format_single(source, style)
+
+        formatter = CitationFormatter([source])
+        style_lower = (style or "APA").lower()
+        if style_lower == "mla":
+            return formatter.format_mla()
+        if style_lower == "ieee":
+            return formatter.format_ieee()
+        if style_lower == "bibtex":
+            return formatter.format_bibtex()
+        return formatter.format_apa()
     except Exception as e:
         logging.error(f"Error in professional citation formatting: {e}")
         # Fallback to simple formatting if module fails
