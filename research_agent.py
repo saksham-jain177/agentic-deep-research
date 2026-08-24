@@ -7,6 +7,8 @@ from tavily import TavilyClient
 from urllib.parse import urlparse
 from typing import List, Dict, Any
 
+from sanitize import sanitize_results
+
 # Load environment variables from .env
 load_dotenv()
 
@@ -46,14 +48,14 @@ def research_web(query, deep_research=False, language='en'):
                 # If we prefer cache and have good results, skip web search
                 if PREFER_CACHE and len(vector_results) >= 5:
                     print("Using cached results only (PREFER_CACHE_RESULTS=true)")
-                    return [
+                    return sanitize_results([
                         {
                             "title": r['metadata'].get('title', 'Cached Result'),
                             "content": r['content'],
                             "url": r['metadata'].get('url', 'cache://local')
                         }
                         for r in vector_results
-                    ]
+                    ])
             except Exception as e:
                 print(f"Vector search failed: {e}, continuing with web search")
         
@@ -61,14 +63,14 @@ def research_web(query, deep_research=False, language='en'):
         if not api_key:
             # If we have vector results, return those; otherwise return error
             if vector_results:
-                return [
+                return sanitize_results([
                     {
                         "title": r['metadata'].get('title', 'Cached Result'),
                         "content": r['content'],
                         "url": r['metadata'].get('url', 'cache://local')
                     }
                     for r in vector_results
-                ]
+                ])
             return [{
                 "error": "Missing TAVILY_API_KEY",
                 "message": "Set TAVILY_API_KEY in your environment or .env file to enable web research.",
@@ -183,7 +185,11 @@ def research_web(query, deep_research=False, language='en'):
         # Clean up the from_cache flag before returning
         for item in data:
             item.pop('from_cache', None)
-        
+
+        # Untrusted web content: neutralize instruction-like patterns before
+        # the results are stored in the vector store or reach any LLM prompt.
+        data = sanitize_results(data)
+
         # Optional debug dump (off by default; enable with DEBUG_DUMP_RESEARCH=true)
         if os.getenv("DEBUG_DUMP_RESEARCH", "false").lower() == "true":
             with open("research_data.json", "w") as f:
