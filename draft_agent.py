@@ -49,6 +49,8 @@ def _env_int(name: str, default: int) -> int:
 # side retry budget instead of hanging indefinitely (env-configurable).
 DEFAULT_LLM_TIMEOUT_SECONDS = 60
 DEFAULT_LLM_MAX_RETRIES = 2
+# Cost control: hard cap on completion size for every ChatOpenAI client.
+DEFAULT_LLM_MAX_OUTPUT_TOKENS = 4000
 
 
 def _llm_network_kwargs() -> dict:
@@ -56,6 +58,7 @@ def _llm_network_kwargs() -> dict:
     return {
         "timeout": _env_int("LLM_TIMEOUT_SECONDS", DEFAULT_LLM_TIMEOUT_SECONDS),
         "max_retries": _env_int("LLM_MAX_RETRIES", DEFAULT_LLM_MAX_RETRIES),
+        "max_tokens": _env_int("LLM_MAX_OUTPUT_TOKENS", DEFAULT_LLM_MAX_OUTPUT_TOKENS),
     }
 
 def _get_llm():
