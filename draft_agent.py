@@ -6,7 +6,7 @@ from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.tools import StructuredTool
 import requests
-from openai import APIConnectionError
+from openai import APIConnectionError, RateLimitError
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -59,6 +59,35 @@ def _get_llm():
             logging.error(f"Failed to initialize LLM: {type(e).__name__}: {str(e)}")
             llm = None
     return llm
+
+def _get_fallback_models():
+    """Parse OPENROUTER_FALLBACK_MODELS (comma-separated) into a clean list."""
+    models = []
+    for model in os.getenv("OPENROUTER_FALLBACK_MODELS", "").split(","):
+        model = model.strip()
+        if model and model not in models:
+            models.append(model)
+    return models
+
+def _llm_for_model(model: str):
+    """Build a ChatOpenAI client for a specific model in the fallback chain."""
+    api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
+    base_url = os.getenv("OPENAI_BASE_URL") or "https://openrouter.ai/api/v1"
+    return ChatOpenAI(api_key=api_key, base_url=base_url, model=model)
+
+def _should_advance_model_chain(error: Exception) -> bool:
+    """True for rate-limit / empty-response failures worth a different model.
+
+    Any other error (auth, network) stays on the current model and uses the
+    plain retry loop instead.
+    """
+    message = str(error).lower()
+    return (
+        isinstance(error, RateLimitError)
+        or "429" in str(error)
+        or "rate limit" in message
+        or "empty response" in message
+    )
 
 # --- Token budget guard (cost control) ---
 # Projected input tokens for one full report (evidence table x sections +
@@ -607,6 +636,16 @@ def draft_answer(
 
         response_text = []
         cited_ids = set()
+
+        # Cost/reliability: model fallback chain. Primary model first, then
+        # OPENROUTER_FALLBACK_MODELS. Free OpenRouter endpoints 429 often, so
+        # on rate-limit or empty responses we permanently advance to the next
+        # model in the chain (once a fallback works, later sections keep it).
+        primary_model = os.getenv("OPENROUTER_MODEL") or os.getenv("OPENAI_MODEL") or "unknown"
+        model_chain = [primary_model] + [m for m in _get_fallback_models() if m != primary_model]
+        current_llm = llm_instance
+        current_model_idx = 0
+
         for section_name, prompt_template in sections:
             messages = [
                 {"role": "system", "content": system_message},
@@ -621,11 +660,22 @@ def draft_answer(
             last_error = None
             for _section_attempt in range(retries):
                 try:
-                    response = llm_instance.invoke(messages)
+                    response = current_llm.invoke(messages)
+                    if not clean_think_tags(response.content.strip()):
+                        raise ValueError("empty response from model")
                     break
                 except Exception as e:
                     last_error = e
-                    if _section_attempt < retries - 1:
+                    if _should_advance_model_chain(e) and current_model_idx < len(model_chain) - 1:
+                        next_model = model_chain[current_model_idx + 1]
+                        logging.warning(
+                            f"Model {model_chain[current_model_idx]} failed for section "
+                            f"{section_name} ({type(e).__name__}); advancing to fallback "
+                            f"model {next_model}"
+                        )
+                        current_llm = _llm_for_model(next_model)
+                        current_model_idx += 1
+                    elif _section_attempt < retries - 1:
                         time.sleep(delay)
             else:
                 raise last_error
@@ -653,7 +703,9 @@ def draft_answer(
 
             response_text.append({"title": section_name, "content": section_text})
 
-        used_model = os.getenv("OPENROUTER_MODEL") or os.getenv("OPENAI_MODEL") or "unknown"
+        # Report the model that actually produced the draft (may be a
+        # fallback after rate limits on the primary).
+        used_model = model_chain[current_model_idx]
         # References are rendered from the ids ACTUALLY cited inline, so the
         # bibliography never lists a source the report body doesn't support.
         citations = [
