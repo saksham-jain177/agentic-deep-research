@@ -49,6 +49,21 @@ MAX_SOURCE_CHARS = 1500
 VALID_CONFIDENCE = {"high", "medium", "low"}
 
 
+def _env_int(name: str, default: int) -> int:
+    """Read a positive int from the environment, falling back to default."""
+    try:
+        value = int(os.getenv(name, str(default)))
+        return value if value > 0 else default
+    except ValueError:
+        return default
+
+
+# Reliability: explicit socket timeout + client-side retries (same env vars
+# and defaults as draft_agent so behavior is uniform across LLM clients).
+DEFAULT_LLM_TIMEOUT_SECONDS = 60
+DEFAULT_LLM_MAX_RETRIES = 2
+
+
 def _get_llm():
     """Return a ChatOpenAI client for the cheap extraction model, or None.
 
@@ -65,7 +80,13 @@ def _get_llm():
     desired = {"api_key": api_key, "base_url": base_url, "model": model}
     if llm is None or any(_llm_cfg.get(k) != v for k, v in desired.items()):
         try:
-            llm = ChatOpenAI(api_key=api_key, base_url=base_url, model=model)
+            llm = ChatOpenAI(
+                api_key=api_key,
+                base_url=base_url,
+                model=model,
+                timeout=_env_int("LLM_TIMEOUT_SECONDS", DEFAULT_LLM_TIMEOUT_SECONDS),
+                max_retries=_env_int("LLM_MAX_RETRIES", DEFAULT_LLM_MAX_RETRIES),
+            )
             _llm_cfg = desired
         except Exception as e:
             logging.error(f"Failed to initialize evidence extractor LLM: {type(e).__name__}: {str(e)}")

@@ -77,6 +77,8 @@ def research_web(query, deep_research=False, language='en'):
             }]
 
         tavily_client = TavilyClient(api_key=api_key)
+        # Reliability: explicit per-request timeout instead of library default
+        search_timeout = float(os.getenv("RESEARCH_TIMEOUT_SECONDS", "60"))
         # Domain filtering (avoid social chatter like reddit by default)
         excluded_env = os.getenv("EXCLUDE_DOMAINS", "reddit.com,x.com,twitter.com,tiktok.com,pinterest.com,instagram.com")
         EXCLUDED_DOMAINS = {d.strip().lower() for d in excluded_env.split(',') if d.strip()}
@@ -99,7 +101,7 @@ def research_web(query, deep_research=False, language='en'):
                 url_set.add(url)
 
         # Initial query (reduced for speed)
-        results = tavily_client.search(query, max_results=max_results)
+        results = tavily_client.search(query, max_results=max_results, timeout=search_timeout)
         initial_data = []
         for r in results["results"]:
             u = r.get("url") or ""
@@ -124,7 +126,7 @@ def research_web(query, deep_research=False, language='en'):
             def _search_variant(variant_query):
                 """Run one variant Tavily search and return filtered results."""
                 try:
-                    res = tavily_client.search(variant_query, max_results=max_results)
+                    res = tavily_client.search(variant_query, max_results=max_results, timeout=search_timeout)
                 except Exception as e:
                     print(f"Variant query failed: {e}, skipping")
                     return []
