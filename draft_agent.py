@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
 
 import evidence_extractor
+import cost_estimator
 # LangChain 0.1.x StructuredTool requires a pydantic.v1 schema; use it even
 # when pydantic v2 is installed (v2 installs expose the v1 compat layer).
 try:
@@ -58,6 +59,77 @@ def _get_llm():
             logging.error(f"Failed to initialize LLM: {type(e).__name__}: {str(e)}")
             llm = None
     return llm
+
+# --- Token budget guard (cost control) ---
+# Projected input tokens for one full report (evidence table x sections +
+# template overhead) must stay under this cap. Override with the
+# TOKEN_BUDGET_PER_REPORT env var. When over budget, lowest-confidence
+# evidence rows are trimmed first until the projection fits.
+DEFAULT_TOKEN_BUDGET_PER_REPORT = 12000
+
+_CONFIDENCE_RANK = {"low": 0, "medium": 1, "high": 2}
+
+
+def get_token_budget() -> int:
+    """Read TOKEN_BUDGET_PER_REPORT from the environment, with safe default."""
+    raw = os.getenv("TOKEN_BUDGET_PER_REPORT")
+    if raw is None:
+        return DEFAULT_TOKEN_BUDGET_PER_REPORT
+    try:
+        value = int(raw)
+        if value <= 0:
+            raise ValueError
+        return value
+    except ValueError:
+        logging.warning(f"Invalid TOKEN_BUDGET_PER_REPORT={raw!r}; using default {DEFAULT_TOKEN_BUDGET_PER_REPORT}")
+        return DEFAULT_TOKEN_BUDGET_PER_REPORT
+
+
+def _projected_input_tokens(evidence, data, deep_research, num_sections) -> int:
+    """Estimate total input tokens for drafting: evidence table per section."""
+    table_str = evidence_extractor.render_evidence_table(evidence, data)
+    mode = "deep" if deep_research else "shallow"
+    overhead = cost_estimator.TEMPLATE_OVERHEAD[mode] * max(num_sections, 1)
+    return cost_estimator.count_text_tokens(table_str) + overhead
+
+
+def enforce_token_budget(
+    evidence: List[Dict[str, Any]],
+    data: List[Dict[str, Any]],
+    deep_research: bool,
+    num_sections: int,
+    budget: int = None,
+):
+    """Trim lowest-confidence evidence rows until the projected prompt fits.
+
+    Rows are dropped one at a time, lowest confidence first (low -> medium ->
+    high; ties broken by original order), re-projecting after each drop.
+    Returns (trimmed_evidence, info_dict) where info reports how many rows
+    were dropped and the final projection.
+    """
+    if budget is None:
+        budget = get_token_budget()
+    trimmed = list(evidence or [])
+    dropped = []
+    projected = _projected_input_tokens(trimmed, data, deep_research, num_sections)
+
+    while projected > budget and trimmed:
+        min_rank = min(_CONFIDENCE_RANK.get(row.get("confidence", "medium"), 1) for row in trimmed)
+        idx = next(
+            i for i, row in enumerate(trimmed)
+            if _CONFIDENCE_RANK.get(row.get("confidence", "medium"), 1) == min_rank
+        )
+        dropped.append(trimmed.pop(idx))
+        projected = _projected_input_tokens(trimmed, data, deep_research, num_sections)
+
+    if dropped:
+        logging.info(
+            f"Token budget {budget}: trimmed {len(dropped)} low-confidence evidence "
+            f"row(s); projected input tokens now ~{projected}"
+        )
+    info = {"budget": budget, "dropped": len(dropped), "dropped_rows": dropped, "projected_tokens": projected}
+    return trimmed, info
+
 
 # Writing style templates following industry standards
 STYLE_TEMPLATES = {
@@ -494,6 +566,12 @@ def draft_answer(
         except Exception as e:
             logging.warning(f"Evidence extraction crashed, using fallback: {type(e).__name__}: {str(e)}")
             evidence = evidence_extractor._fallback_evidence(data)
+
+        # Cost guard: keep the projected input tokens (evidence table x
+        # sections + template overhead) under TOKEN_BUDGET_PER_REPORT by
+        # dropping lowest-confidence evidence rows first.
+        num_sections = 6 if deep_research else 2
+        evidence, _budget_info = enforce_token_budget(evidence, data, deep_research, num_sections)
         data_str = evidence_extractor.render_evidence_table(evidence, data)
 
         # Modify prompts with style and language
