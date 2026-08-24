@@ -745,6 +745,228 @@ def draft_answer(
         return f"Error drafting response: {type(e).__name__} - {str(e)}"
 
 
+# --- Tier 4: Streaming report generation ------------------------------------
+
+STREAM_EVENT_SECTION = "section"
+STREAM_EVENT_SECTION_ERROR = "section_error"
+STREAM_EVENT_CONTRADICTIONS = "contradictions"
+STREAM_EVENT_DONE = "done"
+
+
+def _prepare_streaming_context(data, deep_research, writing_style):
+    """Shared setup for draft_answer / stream_draft_answer.
+
+    Returns (evidence_table_str, sections) where sections is the ordered
+    list of (title, prompt_template) pairs. Raises ValueError on missing
+    API key or empty data.
+    """
+    if not data:
+        raise ValueError("No research data provided")
+    llm_instance = _get_llm()
+    if not llm_instance:
+        raise ValueError(
+            "Missing API key. Set OPENROUTER_API_KEY (preferred) or "
+            "OPENAI_API_KEY with OPENAI_BASE_URL."
+        )
+    try:
+        evidence = evidence_extractor.extract_evidence(data)
+    except Exception as e:
+        logging.warning(f"Evidence extraction crashed, using fallback: {type(e).__name__}: {str(e)}")
+        evidence = evidence_extractor._fallback_evidence(data)
+    num_sections = 6 if deep_research else 2
+    evidence, _budget_info = enforce_token_budget(evidence, data, deep_research, num_sections)
+    data_str = evidence_extractor.render_evidence_table(evidence, data)
+
+    if not deep_research:
+        sections = [
+            ("Key Findings", apply_writing_style(sanitize_template_for_markdown(key_findings_prompt.template), writing_style)),
+            ("Analysis", apply_writing_style(sanitize_template_for_markdown(analysis_prompt.template), writing_style))
+        ]
+    else:
+        sections = [
+            ("Abstract", apply_writing_style(sanitize_template_for_markdown(abstract_prompt.template), writing_style)),
+            ("Introduction", apply_writing_style(sanitize_template_for_markdown(introduction_prompt.template), writing_style)),
+            ("Literature Review", apply_writing_style(sanitize_template_for_markdown(literature_review_prompt.template), writing_style)),
+            ("Key Findings", apply_writing_style(sanitize_template_for_markdown(key_findings_prompt.template), writing_style)),
+            ("Analysis", apply_writing_style(sanitize_template_for_markdown(analysis_prompt.template), writing_style)),
+            ("Conclusion", apply_writing_style(sanitize_template_for_markdown(conclusion_prompt.template), writing_style))
+        ]
+    return llm_instance, data_str, sections
+
+
+def stream_draft_answer(
+    data: List[Dict[str, Any]],
+    deep_research: bool = False,
+    target_word_count: int = 1000,
+    writing_style: str = "academic",
+    citation_format: str = "APA",
+    language: str = "english",
+    retries: int = 3,
+    delay: int = 5,
+):
+    """Streaming variant of draft_answer: a plain generator.
+
+    Yields one dict per event so consumers can render sections as they
+    arrive instead of waiting for the full report:
+
+      {"event": "section", "index": int, "title": str, "content": str,
+       "verification": {verdict dict or None}}
+      {"event": "section_error", "index": int, "title": str, "error": str}
+      {"event": "contradictions", "items": [...]}
+      {"event": "done", "sections": [...], "references": [...],
+       "metadata": {...}}
+
+    Verification runs PER SECTION as each section completes (not as one
+    blocking tail pass); the contradiction pass is inherently cross-source
+    and therefore runs once over the gathered sources after the final
+    section. A failing section never aborts the stream: it is reported as
+    a section_error event and generation continues.
+    """
+    try:
+        llm_instance, data_str, sections = _prepare_streaming_context(
+            data, deep_research, writing_style
+        )
+    except ValueError as ve:
+        yield {"event": STREAM_EVENT_DONE, "sections": [], "references": [],
+               "metadata": {}, "error": str(ve)}
+        return
+
+    system_message = f"Please provide the response in {language}. "
+    system_message += f"Use {citation_format} citation format when referencing sources.\n"
+    lang_block = LANGUAGE_PROMPTS.get(language.lower())
+    if lang_block:
+        system_message += lang_block + "\n"
+    system_message += (
+        "Cite sources inline using bracketed numbers like [1] or [2] that refer "
+        "to the numbered sources in the provided evidence table; every factual "
+        "statement should carry a citation. Only cite source numbers that appear "
+        "in the table.\n"
+        "Format all sections in valid Markdown using appropriate headings and lists. "
+        "Do not use HTML; use Markdown constructs only."
+    )
+
+    cited_ids = set()
+    completed_sections = []
+    used_model = os.getenv("OPENROUTER_MODEL") or os.getenv("OPENAI_MODEL") or "unknown"
+
+    import verification_node
+
+    for idx, (section_name, prompt_template) in enumerate(sections):
+        messages = [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": prompt_template.format(
+                data=data_str,
+                word_count=target_word_count // len(sections)
+            )}
+        ]
+
+        response_text_local = None
+        last_error = None
+        for _attempt in range(retries):
+            try:
+                response = llm_instance.invoke(messages)
+                if not clean_think_tags(response.content.strip()):
+                    raise ValueError("empty response from model")
+                response_text_local = response.content.strip()
+                break
+            except Exception as e:
+                last_error = e
+                if _attempt < retries - 1:
+                    time.sleep(delay)
+
+        if response_text_local is None:
+            logging.warning(
+                f"Streaming: section {section_name} failed permanently "
+                f"({type(last_error).__name__}: {last_error}); continuing"
+            )
+            yield {
+                "event": STREAM_EVENT_SECTION_ERROR,
+                "index": idx,
+                "title": section_name,
+                "error": f"{type(last_error).__name__} - {str(last_error)}",
+            }
+            continue
+
+        section_text = clean_think_tags(response_text_local)
+        if section_name == "Key Findings":
+            section_text = format_key_findings(section_text)
+        section_text = normalize_markdown(section_text)
+        if section_name == "Analysis":
+            section_text = paragraphize_analysis(section_text, max_sentences=5)
+        section_text, sec_cited = _validate_citations(section_text, len(data))
+        if sec_cited:
+            cited_ids |= sec_cited
+        uncited = _uncited_paragraphs(section_text)
+        if uncited:
+            logging.warning(
+                f"{section_name}: {len(uncited)} paragraph(s) lack inline [n] citations"
+            )
+
+        # Per-section verification as soon as this section completes, so the
+        # consumer gets its verdict alongside the content rather than after
+        # one blocking tail pass.
+        verification = None
+        try:
+            verification = verification_node.verify_section(section_name, section_text, data)
+        except Exception as ve:
+            logging.warning(f"Per-section verification skipped ({type(ve).__name__}: {ve})")
+            verification = None
+
+        completed_sections.append({"title": section_name, "content": section_text})
+        yield {
+            "event": STREAM_EVENT_SECTION,
+            "index": idx,
+            "title": section_name,
+            "content": section_text,
+            "verification": verification,
+        }
+
+    # Cross-source contradiction pass (inherently spans all sources).
+    try:
+        import contradiction_detector
+        contradictions = contradiction_detector.detect_contradictions(data)
+    except Exception as ce:
+        logging.warning(f"Contradiction pass skipped ({type(ce).__name__}: {ce})")
+        contradictions = []
+    if contradictions:
+        yield {"event": STREAM_EVENT_CONTRADICTIONS, "items": contradictions}
+
+    citations = [format_citation(data[i - 1], citation_format) for i in sorted(cited_ids)]
+    yield {
+        "event": STREAM_EVENT_DONE,
+        "sections": completed_sections,
+        "references": citations,
+        "metadata": {
+            "model": used_model,
+            "language": language,
+            "writing_style": writing_style,
+            "citation_format": citation_format,
+        },
+    }
+
+
+def collect_streamed_report(stream) -> dict:
+    """Consume a stream_draft_answer stream into a single result dict with the
+    same shape as draft_answer's JSON output (plus 'verification' and
+    'contradictions' keys)."""
+    result = {"sections": [], "references": [], "metadata": {},
+              "verification": [], "contradictions": []}
+    for event in stream:
+        kind = event.get("event")
+        if kind == STREAM_EVENT_SECTION:
+            result["sections"].append({"title": event["title"], "content": event["content"]})
+            if event.get("verification"):
+                result["verification"].append(event["verification"])
+        elif kind == STREAM_EVENT_CONTRADICTIONS:
+            result["contradictions"] = event["items"]
+        elif kind == STREAM_EVENT_DONE:
+            result["references"] = event.get("references", [])
+            result["metadata"] = event.get("metadata", {})
+            if event.get("error"):
+                result["error"] = event["error"]
+    return result
+
+
 # Define the tool with support for deep research and target word count using StructuredTool
 draft_tool = StructuredTool.from_function(
     func=draft_answer,
