@@ -30,6 +30,7 @@ cache/
 research_data.json
 feedback.txt
 research_agent.log
+chroma_db/
 
 # Editors/OS
 .vscode/

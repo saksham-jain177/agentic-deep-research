@@ -33,6 +33,26 @@ if VECTOR_STORE_ENABLED:
         logger.warning(f"Vector store initialization failed: {e}, proceeding without it")
         VECTOR_STORE_ENABLED = False
 
+def _is_excluded_domain(url: str, excluded_domains) -> bool:
+    """True if url's host IS an excluded domain or a subdomain of one.
+
+    Matches on domain boundaries: "x.com" excludes "x.com" and "www.x.com"
+    but NOT "netflix.com" (which a naive endswith("x.com") would exclude).
+    """
+    domain = urlparse(url).netloc.lower()
+    return any(domain == ex or domain.endswith("." + ex) for ex in excluded_domains)
+
+def _strip_cache_flags(data):
+    """Count from_cache entries, then strip the internal flag from each item.
+
+    Returns the count so the caller can log it after the flag is gone
+    (counting after the pop always yielded 0).
+    """
+    cached_count = len([d for d in data if d.get('from_cache')])
+    for item in data:
+        item.pop('from_cache', None)
+    return cached_count
+
 def research_web(query, deep_research=False, language='en'):
     """Fetch data from the web using Tavily based on a query, with optional vector store integration."""
     try:
@@ -111,8 +131,7 @@ def research_web(query, deep_research=False, language='en'):
         initial_data = []
         for r in results["results"]:
             u = r.get("url") or ""
-            domain = urlparse(u).netloc.lower()
-            if any(domain.endswith(ex) for ex in EXCLUDED_DOMAINS):
+            if _is_excluded_domain(u, EXCLUDED_DOMAINS):
                 continue
             initial_data.append({"title": r.get("title",""), "content": r.get("content",""), "url": u})
         for item in initial_data:
@@ -139,8 +158,7 @@ def research_web(query, deep_research=False, language='en'):
                 additional_data = []
                 for r in res["results"]:
                     u = r.get("url") or ""
-                    domain = urlparse(u).netloc.lower()
-                    if any(domain.endswith(ex) for ex in EXCLUDED_DOMAINS):
+                    if _is_excluded_domain(u, EXCLUDED_DOMAINS):
                         continue
                     additional_data.append({"title": r.get("title",""), "content": r.get("content",""), "url": u})
                 return additional_data
@@ -190,9 +208,8 @@ def research_web(query, deep_research=False, language='en'):
             except Exception as e:
                 logger.error(f"Failed to store in vector DB: {e}")
         
-        # Clean up the from_cache flag before returning
-        for item in data:
-            item.pop('from_cache', None)
+        # Count cache hits and strip the internal flag before returning.
+        cached_count = _strip_cache_flags(data)
 
         # Untrusted web content: neutralize instruction-like patterns before
         # the results are stored in the vector store or reach any LLM prompt.
@@ -202,7 +219,7 @@ def research_web(query, deep_research=False, language='en'):
         if os.getenv("DEBUG_DUMP_RESEARCH", "false").lower() == "true":
             with open("research_data.json", "w") as f:
                 json.dump(data, f, indent=2)
-        logger.info(f"Fetched {len(data)} research items ({len([d for d in data if d.get('from_cache')])} from cache)")
+        logger.info(f"Fetched {len(data)} research items ({cached_count} from cache)")
         return data
     except Exception as e:
         raise Exception(f"Research failed: {str(e)}")

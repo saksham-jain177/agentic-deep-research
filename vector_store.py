@@ -33,17 +33,13 @@ class ResearchVectorStore:
         self._reranker_enabled = enable_reranker
         
         # Initialize ChromaDB client
-        if os.path.exists(persist_dir):
-            # Use persistent storage
-            self.client = chromadb.PersistentClient(
-                path=persist_dir,
-                settings=Settings(anonymized_telemetry=False)
-            )
-        else:
-            # Use in-memory storage
-            self.client = chromadb.Client(
-                Settings(anonymized_telemetry=False)
-            )
+        # Always use persistent storage: PersistentClient creates persist_dir
+        # when missing. The old exists() branch fell back to an in-memory
+        # client on fresh installs, silently discarding everything stored.
+        self.client = chromadb.PersistentClient(
+            path=persist_dir,
+            settings=Settings(anonymized_telemetry=False)
+        )
         
         # Create per-language collections
         self.collections = {}
@@ -54,7 +50,7 @@ class ResearchVectorStore:
                     name=collection_name,
                     metadata={"language": lang}
                 )
-            except:
+            except Exception:
                 # If collection exists, get it
                 self.collections[lang] = self.client.get_collection(collection_name)
     
@@ -73,7 +69,7 @@ class ResearchVectorStore:
             try:
                 print("Loading reranker model (first use)...")
                 self._reranker = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
-            except:
+            except Exception:
                 print("Reranker model not available, proceeding without reranking")
                 self._reranker_enabled = False
         return self._reranker
@@ -162,7 +158,7 @@ class ResearchVectorStore:
                 existing = collection.get(ids=[doc_id])
                 if existing and existing['ids']:
                     continue  # Skip duplicates
-            except:
+            except Exception:
                 pass
             
             # Determine TTL category
@@ -212,7 +208,7 @@ class ResearchVectorStore:
                             )
                             return len(documents)
                         return 0
-                except:
+                except Exception:
                     pass
             
             for section in sections:
@@ -228,7 +224,7 @@ class ResearchVectorStore:
                     existing = collection.get(ids=[doc_id])
                     if existing and existing['ids']:
                         continue
-                except:
+                except Exception:
                     pass
                 
                 documents.append(content)
@@ -288,7 +284,7 @@ class ResearchVectorStore:
                 query_embeddings=[query_embedding],
                 n_results=min(search_k, 100)
             )
-        except:
+        except Exception:
             return []
         
         if not results or not results['documents']:
@@ -324,7 +320,7 @@ class ResearchVectorStore:
                 
                 # Sort by rerank score (higher is better)
                 documents.sort(key=lambda x: x.get('rerank_score', 0), reverse=True)
-            except:
+            except Exception:
                 # If reranking fails, continue with original order
                 pass
         
@@ -374,7 +370,7 @@ class ResearchVectorStore:
                 'expired': expired,
                 'active': total - expired
             }
-        except:
+        except Exception:
             return {
                 'total_documents': 0,
                 'sources': 0,
@@ -412,7 +408,7 @@ class ResearchVectorStore:
                 if expired_ids:
                     collection.delete(ids=expired_ids)
                     total_cleared += len(expired_ids)
-            except:
+            except Exception:
                 continue
         
         return total_cleared
@@ -433,7 +429,7 @@ class ResearchVectorStore:
                     name=collection_name,
                     metadata={"language": lang}
                 )
-            except:
+            except Exception:
                 return False
         
         return True
