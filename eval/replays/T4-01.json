@@ -1,0 +1,16 @@
+{
+  "query": "What will the S&P 500 index close at on 31 December 2031?",
+  "tier": "T4",
+  "latency_s": 22.4,
+  "input_tokens": 3300,
+  "output_tokens": 380,
+  "cost_usd": 0.0056,
+  "report": "## Summary\n\nI could not find any reliable source that states the S&P 500 closing value for 31 December 2031. This is a future event, so no evidence exists yet, and any specific figure would be speculation rather than research.\n\nReliable sources can describe current index levels and historical returns, but none can provide a verifiable future closing price. If a forecast is useful, note that it would be a projection with wide uncertainty rather than a fact.\n",
+  "sources": [
+    {
+      "title": "S&P 500 index overview",
+      "url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+      "content": "The S&P 500 is a market-capitalisation-weighted index of 500 large companies listed on US stock exchanges. Index levels change continuously during trading hours."
+    }
+  ]
+}

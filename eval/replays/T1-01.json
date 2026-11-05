@@ -1,0 +1,21 @@
+{
+  "query": "At what temperature does water boil at sea level?",
+  "tier": "T1",
+  "latency_s": 14.2,
+  "input_tokens": 2100,
+  "output_tokens": 620,
+  "cost_usd": 0.0041,
+  "report": "## Boiling Point of Water\n\nWater boils at 100 degrees Celsius at sea level [1]. That corresponds to 212 degrees Fahrenheit [1]. The boiling point falls as altitude rises, because atmospheric pressure decreases with elevation [2].\n\nPressure cookers exploit the reverse effect, raising the boiling point and shortening cooking times [2].\n\n## References\n\n[1] National Oceanic and Atmospheric Administration. Water and boiling point. Retrieved from https://www.noaa.gov/education/resource-collections/freshwater\n[2] USGS Water Science School. Boiling point and altitude. Retrieved from https://www.usgs.gov/special-topics/water-science-school\n",
+  "sources": [
+    {
+      "title": "Water and boiling point",
+      "url": "https://www.noaa.gov/education/resource-collections/freshwater",
+      "content": "Water boils at 100 degrees Celsius at sea level. That corresponds to 212 degrees Fahrenheit. At higher elevations the boiling point drops because atmospheric pressure is lower."
+    },
+    {
+      "title": "Boiling point and altitude",
+      "url": "https://www.usgs.gov/special-topics/water-science-school",
+      "content": "The boiling point falls as altitude rises, because atmospheric pressure decreases with elevation. A pressure cooker raises the boiling point by increasing pressure, which shortens cooking times."
+    }
+  ]
+}

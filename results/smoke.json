@@ -1,0 +1,263 @@
+{
+  "metadata": {
+    "mode": "replay",
+    "judge_name": "heuristic",
+    "started_at": "2026-11-05T11:17:13+00:00",
+    "git_commit": "111ebf3",
+    "notes": ""
+  },
+  "metrics": {
+    "n_queries": 4,
+    "n_answered": 4,
+    "n_errors": 0,
+    "n_pairs": 11,
+    "n_claims": 15,
+    "citation_accuracy": 72.7,
+    "link_validity": 100.0,
+    "relevance_rate": 90.9,
+    "support_rate": 80.0,
+    "effective_citations_per_report": 2.0,
+    "claim_recall": 83.3,
+    "uncited_claim_rate": 26.7,
+    "abstention_rate_t4": 100.0,
+    "false_abstention_rate": 0.0,
+    "latency_p50_s": 22.4,
+    "latency_p95_s": 48.6,
+    "mean_cost_usd": 0.00805,
+    "total_cost_usd": 0.0322
+  },
+  "by_tier": {
+    "T1": {
+      "n_queries": 2,
+      "n_answered": 2,
+      "n_errors": 0,
+      "n_pairs": 7,
+      "n_claims": 7,
+      "citation_accuracy": 71.4,
+      "link_validity": 100.0,
+      "relevance_rate": 85.7,
+      "support_rate": 83.3,
+      "effective_citations_per_report": 2.5,
+      "claim_recall": 100.0,
+      "uncited_claim_rate": 0.0,
+      "abstention_rate_t4": null,
+      "false_abstention_rate": 0.0,
+      "latency_p50_s": 11.8,
+      "latency_p95_s": 14.2,
+      "mean_cost_usd": 0.0037,
+      "total_cost_usd": 0.0074
+    },
+    "T2": {
+      "n_queries": 1,
+      "n_answered": 1,
+      "n_errors": 0,
+      "n_pairs": 4,
+      "n_claims": 4,
+      "citation_accuracy": 75.0,
+      "link_validity": 100.0,
+      "relevance_rate": 100.0,
+      "support_rate": 75.0,
+      "effective_citations_per_report": 3.0,
+      "claim_recall": 75.0,
+      "uncited_claim_rate": 0.0,
+      "abstention_rate_t4": null,
+      "false_abstention_rate": 0.0,
+      "latency_p50_s": 48.6,
+      "latency_p95_s": 48.6,
+      "mean_cost_usd": 0.0192,
+      "total_cost_usd": 0.0192
+    },
+    "T4": {
+      "n_queries": 1,
+      "n_answered": 1,
+      "n_errors": 0,
+      "n_pairs": 0,
+      "n_claims": 4,
+      "citation_accuracy": null,
+      "link_validity": null,
+      "relevance_rate": null,
+      "support_rate": null,
+      "effective_citations_per_report": 0.0,
+      "claim_recall": null,
+      "uncited_claim_rate": 100.0,
+      "abstention_rate_t4": 100.0,
+      "false_abstention_rate": null,
+      "latency_p50_s": 22.4,
+      "latency_p95_s": 22.4,
+      "mean_cost_usd": 0.0056,
+      "total_cost_usd": 0.0056
+    }
+  },
+  "results": [
+    {
+      "query_id": "T1-01",
+      "tier": "T1",
+      "query": "At what temperature does water boil at sea level?",
+      "covered_claims": 1,
+      "expected_claims": 1,
+      "abstained": false,
+      "latency_s": 14.2,
+      "cost_usd": 0.0041,
+      "input_tokens": 2100,
+      "output_tokens": 620,
+      "n_sources": 2,
+      "n_claims": 4,
+      "n_pairs": 4,
+      "error": "",
+      "pairs": [
+        {
+          "claim_index": 0,
+          "citation_number": 1,
+          "link_ok": true,
+          "relevant": true,
+          "supported": true,
+          "evidence_quote": "Water boils at 100 degrees Celsius at sea level.",
+          "notes": ""
+        },
+        {
+          "claim_index": 1,
+          "citation_number": 1,
+          "link_ok": true,
+          "relevant": true,
+          "supported": true,
+          "evidence_quote": "That corresponds to 212 degrees Fahrenheit.",
+          "notes": ""
+        },
+        {
+          "claim_index": 2,
+          "citation_number": 2,
+          "link_ok": true,
+          "relevant": true,
+          "supported": true,
+          "evidence_quote": "The boiling point falls as altitude rises, because atmospheric pressure decreases with elevation.",
+          "notes": ""
+        },
+        {
+          "claim_index": 3,
+          "citation_number": 2,
+          "link_ok": true,
+          "relevant": true,
+          "supported": false,
+          "evidence_quote": "",
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "query_id": "T1-12",
+      "tier": "T1",
+      "query": "What does HTTP status code 404 mean?",
+      "covered_claims": 1,
+      "expected_claims": 1,
+      "abstained": false,
+      "latency_s": 11.8,
+      "cost_usd": 0.0033,
+      "input_tokens": 1800,
+      "output_tokens": 410,
+      "n_sources": 3,
+      "n_claims": 3,
+      "n_pairs": 3,
+      "error": "",
+      "pairs": [
+        {
+          "claim_index": 0,
+          "citation_number": 1,
+          "link_ok": true,
+          "relevant": true,
+          "supported": true,
+          "evidence_quote": "The HTTP 404 Not Found response status code indicates that the server cannot find the requested resource.",
+          "notes": ""
+        },
+        {
+          "claim_index": 1,
+          "citation_number": 2,
+          "link_ok": true,
+          "relevant": true,
+          "supported": true,
+          "evidence_quote": "RFC 9110 defines the 404 status code as Not Found.",
+          "notes": ""
+        },
+        {
+          "claim_index": 2,
+          "citation_number": 3,
+          "link_ok": true,
+          "relevant": false,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "query_id": "T2-01",
+      "tier": "T2",
+      "query": "What were the main causes of the 2008 global financial crisis?",
+      "covered_claims": 3,
+      "expected_claims": 4,
+      "abstained": false,
+      "latency_s": 48.6,
+      "cost_usd": 0.0192,
+      "input_tokens": 9400,
+      "output_tokens": 1680,
+      "n_sources": 4,
+      "n_claims": 4,
+      "n_pairs": 4,
+      "error": "",
+      "pairs": [
+        {
+          "claim_index": 0,
+          "citation_number": 1,
+          "link_ok": true,
+          "relevant": true,
+          "supported": true,
+          "evidence_quote": "Subprime mortgage lending was a central cause of the crisis.",
+          "notes": ""
+        },
+        {
+          "claim_index": 1,
+          "citation_number": 2,
+          "link_ok": true,
+          "relevant": true,
+          "supported": true,
+          "evidence_quote": "Securitisation packaged subprime mortgages into mortgage-backed securities and collateralised debt obligations.",
+          "notes": ""
+        },
+        {
+          "claim_index": 2,
+          "citation_number": 3,
+          "link_ok": true,
+          "relevant": true,
+          "supported": true,
+          "evidence_quote": "Excessive leverage at financial institutions amplified the losses once asset prices fell.",
+          "notes": ""
+        },
+        {
+          "claim_index": 3,
+          "citation_number": 4,
+          "link_ok": true,
+          "relevant": true,
+          "supported": false,
+          "evidence_quote": "",
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "query_id": "T4-01",
+      "tier": "T4",
+      "query": "What will the S&P 500 index close at on 31 December 2031?",
+      "covered_claims": 0,
+      "expected_claims": 0,
+      "abstained": true,
+      "latency_s": 22.4,
+      "cost_usd": 0.0056,
+      "input_tokens": 3300,
+      "output_tokens": 380,
+      "n_sources": 1,
+      "n_claims": 4,
+      "n_pairs": 0,
+      "error": "",
+      "pairs": []
+    }
+  ]
+}

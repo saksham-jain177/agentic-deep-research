@@ -35,6 +35,29 @@ Every generated report includes:
 Both passes degrade gracefully: if no judge model is configured, deterministic heuristics
 take over so generation never blocks.
 
+## Evaluation
+
+The verification pass tells you whether a report passed the agent's own check. `eval/`
+tells you whether the agent is actually getting better: it runs a fixed 40-query gold set
+through the pipeline and reports citation accuracy, grounding, abstention, and cost.
+
+```bash
+python -m eval validate                 # check the gold set
+python -m eval run --mode replay        # deterministic run over committed fixtures
+python -m eval report --results results/smoke.json --out results/smoke.md
+```
+
+Every `[n]` citation is scored through three cumulative tiers — the link resolves, the
+page is on-topic, the page actually establishes the claim — so a failure is diagnosable
+rather than just a low number. The gold set is stratified into verifiable facts,
+synthesis, contested topics, and *unanswerable* queries, because an agent that invents an
+answer to an unknowable question should score worse than one that abstains.
+
+The harness is standard library only, needs no API keys, and is covered by its own
+offline tests. It also provides `compare` for ablation runs (one variable at a time) and
+`calibrate` for measuring LLM-judge agreement (Cohen's κ) against hand labels. See
+[eval/README.md](eval/README.md) for the metric definitions and methodology.
+
 ## Architecture
 
 ```mermaid
@@ -164,7 +187,7 @@ This tool is **not**:
 
 ## Testing
 
-The test suite (232 offline tests — all LLM and Tavily calls are mocked; the full suite runs without API keys) covers evidence extraction, citation validation, section-level draft retry, reranking, prompt-injection sanitization, log redaction, token budgets, output-token caps, model fallback, and timeouts.
+The test suite (265 offline tests — all LLM and Tavily calls are mocked; the full suite runs without API keys) covers evidence extraction, citation validation, section-level draft retry, reranking, prompt-injection sanitization, log redaction, token budgets, output-token caps, model fallback, timeouts, and the evaluation harness.
 
 ```bash
 pytest tests/ -v
@@ -183,7 +206,8 @@ pytest tests/ -v
 ├── log_redaction.py      # API key redaction from logs and session state
 ├── cost_estimator.py     # Token/cost estimation with uncertainty
 ├── citation_formatter.py # APA/MLA/IEEE/BibTeX generation with citation grounding
-└── tests/                # Pytest suite: 180 tests, all offline (LLM/Tavily mocked)
+├── eval/                 # Benchmark harness: gold set, three-tier citation scoring, metrics
+└── tests/                # Pytest suite: 265 tests, all offline (LLM/Tavily mocked)
 ```
 
 ## Contributing
