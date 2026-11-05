@@ -75,25 +75,74 @@ def replay_pipeline(replay_dir: str) -> Pipeline:
     return run
 
 
-def live_pipeline(deep_research: bool = True, word_count: int = 1200) -> Pipeline:
+def _run_graph(query: str, deep_research: bool, word_count: int):
+    """Preferred backend: the agent's own LangGraph workflow."""
+    from main import run_research
+
+    return run_research(
+        query,
+        deep_research=deep_research,
+        target_word_count=word_count,
+    )
+
+
+def _run_direct(query: str, deep_research: bool, word_count: int):
+    """Fallback backend: the same two nodes, without the graph wrapper.
+
+    ``main`` is a two-node StateGraph (research -> draft), so calling the
+    nodes directly is behaviourally equivalent. This path exists because
+    ``requirements.txt`` does not currently resolve to a working langgraph
+    install, and an evaluation harness that cannot run is worthless.
+    """
+    from draft_agent import draft_tool
+    from research_agent import research_web
+
+    research_data = research_web(query, deep_research, "en")
+    if (
+        isinstance(research_data, list)
+        and research_data
+        and isinstance(research_data[0], dict)
+        and "error" in research_data[0]
+    ):
+        raise RuntimeError(f"research failed: {research_data[0]['error']}")
+
+    draft = draft_tool.invoke(
+        {
+            "data": research_data,
+            "deep_research": deep_research,
+            "target_word_count": word_count,
+            "writing_style": "academic",
+            "citation_format": "APA",
+            "language": "english",
+            "retries": 3,
+            "delay": 5,
+        }
+    )
+    return research_data, draft
+
+
+def live_pipeline(
+    deep_research: bool = True,
+    word_count: int = 1200,
+    prefer_graph: bool = True,
+) -> Pipeline:
     """Run the real agent. Imported lazily so replay mode needs no deps."""
 
     def run(gold: GoldQuery) -> PipelineOutput:
-        from main import run_research
-
+        backend = _run_graph if prefer_graph else _run_direct
         started = time.perf_counter()
         try:
-            research_data, draft = run_research(
-                gold.query,
-                deep_research=deep_research,
-                target_word_count=word_count,
-            )
+            try:
+                research_data, draft = backend(gold.query, deep_research, word_count)
+            except ImportError:
+                backend = _run_direct
+                research_data, draft = backend(gold.query, deep_research, word_count)
         except Exception as exc:  # pragma: no cover - network path
             return PipelineOutput(report="", error=f"{type(exc).__name__}: {exc}")
         elapsed = time.perf_counter() - started
 
         error = ""
-        if not draft or str(draft).startswith("Workflow failed"):
+        if not draft or str(draft).startswith("Workflow failed") or "Error drafting response" in str(draft):
             error = str(draft)[:500]
         return PipelineOutput(
             report="" if error else str(draft),

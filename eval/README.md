@@ -135,7 +135,33 @@ python -m eval compare --baseline results/before.json --candidate results/after.
 One variable per run. A pipeline change that moves three metrics at once
 tells you nothing.
 
+## Findings from the first live run
+
+One live query (`T1-01`, deep research, 28 sources gathered) surfaced two
+defects that the unit tests could not see, because both are properties of the
+*assembled* output rather than of any single function:
+
+1. **Every reference is labelled `[1]`.** The `references` array in the draft
+   JSON contains distinct URLs, but each carries the same bracketed number.
+   Anything that resolves citations by their printed number — a reader, a
+   renderer, a downstream checker — is therefore pointing at the wrong source.
+2. **The report cites `[1]`..`[17]` but ships 5 references.** Twelve distinct
+   citation numbers have no corresponding entry, so those claims are
+   unattributable by construction.
+
+The harness normalises around (1) by renumbering references in array order,
+which is why `results/live-T1-01.json` still yields a measurable result. It
+does not paper over (2): 148 of 155 mapped pairs are flagged as dangling, and
+that is the correct verdict. Until the reference list is complete, citation
+accuracy cannot rise above the fraction of numbered citations that have an
+entry — which is the point of measuring it.
+
+**Next fix, in order:** make `references` cover every citation number used in
+the body, and number them sequentially. Everything else in this harness is
+downstream of that.
+
 ## Limitations
+
 
 - **Heuristic judge understates support.** Treat heuristic runs as relative
   comparisons, never as headline claims.

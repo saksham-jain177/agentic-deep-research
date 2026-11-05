@@ -78,8 +78,15 @@ def failure_summary(payload: Dict[str, object], limit: int = 8) -> str:
     buckets: Dict[str, int] = {}
     for result in payload.get("results", []):
         for pair in result.get("pairs", []):
+            notes = str(pair.get("notes", ""))
             if pair.get("link_ok") is False:
-                buckets["citation did not resolve"] = buckets.get("citation did not resolve", 0) + 1
+                if "dangling" in notes:
+                    key = "citation number missing from reference list"
+                elif "no URL" in notes:
+                    key = "reference has no URL"
+                else:
+                    key = "citation did not resolve"
+                buckets[key] = buckets.get(key, 0) + 1
             elif pair.get("relevant") is False:
                 buckets["source off-topic for claim"] = buckets.get("source off-topic for claim", 0) + 1
             elif pair.get("supported") is False:

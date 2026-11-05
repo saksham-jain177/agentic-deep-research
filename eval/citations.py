@@ -12,6 +12,7 @@ about: a ``{n: Reference}`` registry and a list of ``Claim`` objects whose
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
@@ -188,8 +189,66 @@ def split_claims(
     return claims
 
 
-def parse_report(report: str, backward_attribution: bool = True) -> ParsedReport:
+def normalize_report(report) -> str:
+    """Coerce the agent's output into Markdown.
+
+    ``draft_tool`` returns a JSON *string* shaped like::
+
+        {"sections": [{"title": ..., "content": ...}],
+         "references": ["[1] ... Retrieved from https://..."],
+         "metadata": {...}, "verification": [...], "contradictions": [...]}
+
+    Parsing that as Markdown silently produces garbage claims and zero
+    resolvable citations, so normalise first and keep the Markdown path for
+    hand-written fixtures.
+    """
+    if isinstance(report, dict):
+        obj = report
+    else:
+        text = (report or "").strip()
+        if not text.startswith("{"):
+            return report if isinstance(report, str) else ""
+        try:
+            obj = json.loads(text)
+        except (ValueError, TypeError):
+            return text
+        if not isinstance(obj, dict) or "sections" not in obj:
+            return text
+
+    sections = obj.get("sections") or []
+    if not isinstance(sections, list):
+        return str(report)
+
+    parts: List[str] = []
+    for section in sections:
+        if not isinstance(section, dict):
+            continue
+        title = str(section.get("title", "")).strip()
+        content = str(section.get("content", "")).strip()
+        if title:
+            parts.append(f"## {title}")
+        if content:
+            parts.append(content)
+
+    references = obj.get("references") or []
+    if isinstance(references, list) and references:
+        parts.append("## References")
+        for index, raw in enumerate(references, 1):
+            line = str(raw).strip()
+            if not line:
+                continue
+            # The draft pipeline can emit every reference labelled "[1]"
+            # (see eval/README.md, known defects). Order is the only reliable
+            # signal, so renumber by position.
+            line = re.sub(r"^\[\d+\]\s*", "", line)
+            parts.append(f"[{index}] {line}")
+
+    return "\n\n".join(parts)
+
+
+def parse_report(report, backward_attribution: bool = True) -> ParsedReport:
     """Parse a full report into references + claims."""
+    report = normalize_report(report)
     if not report or not report.strip():
         return ParsedReport()
 

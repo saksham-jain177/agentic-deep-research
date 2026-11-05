@@ -84,6 +84,48 @@ class TestCitations:
         parsed = parse_report("")
         assert parsed.claims == [] and parsed.references == {}
 
+    def test_json_draft_is_normalised_to_markdown(self):
+        payload = json.dumps(
+            {
+                "sections": [
+                    {
+                        "title": "Boiling Point",
+                        "content": "Water boils at 100 degrees Celsius at sea level [1].",
+                    }
+                ],
+                "references": ["[1] NOAA. Water. Retrieved from https://www.noaa.gov/water"],
+                "metadata": {"model": "x"},
+            }
+        )
+        parsed = parse_report(payload)
+        assert parsed.references[1].url == "https://www.noaa.gov/water"
+        assert parsed.claims and parsed.claims[0].citations == [1]
+
+    def test_json_references_without_numbering_get_indexed(self):
+        payload = json.dumps(
+            {
+                "sections": [{"title": "S", "content": "A claim long enough to count here [1]."}],
+                "references": ["NOAA. Water. https://www.noaa.gov/water"],
+            }
+        )
+        parsed = parse_report(payload)
+        assert parsed.references[1].url == "https://www.noaa.gov/water"
+
+    def test_duplicate_reference_numbers_are_renumbered(self):
+        # Known defect: the draft pipeline can label every reference "[1]".
+        payload = json.dumps(
+            {
+                "sections": [{"title": "S", "content": "One claim long enough [1]. Another claim long enough [2]."}],
+                "references": [
+                    "[1] A. Retrieved from https://a.example.com/x",
+                    "[1] B. Retrieved from https://b.example.com/y",
+                ],
+            }
+        )
+        parsed = parse_report(payload)
+        assert parsed.references[1].url == "https://a.example.com/x"
+        assert parsed.references[2].url == "https://b.example.com/y"
+
     def test_domain_extraction(self):
         assert extract_domain("https://www.example.com:443/a/b?c=1") == "example.com"
         assert extract_domain("") == ""
