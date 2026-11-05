@@ -19,6 +19,7 @@ dist/
 # Local envs
 .venv/
 venv/
+.venv-fix/
 env/
 
 # Caches/temp
