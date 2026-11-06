@@ -1,0 +1,1466 @@
+{
+  "metadata": {
+    "mode": "replay",
+    "judge_name": "heuristic",
+    "started_at": "2026-11-05T14:58:52+00:00",
+    "git_commit": "85009ef",
+    "notes": ""
+  },
+  "metrics": {
+    "n_queries": 1,
+    "n_answered": 1,
+    "n_errors": 0,
+    "n_pairs": 155,
+    "n_claims": 60,
+    "citation_accuracy": 14.3,
+    "link_validity": 4.5,
+    "relevance_rate": 14.3,
+    "support_rate": 100.0,
+    "effective_citations_per_report": 1.0,
+    "claim_recall": 100.0,
+    "uncited_claim_rate": 23.3,
+    "abstention_rate_t4": null,
+    "false_abstention_rate": 0.0,
+    "latency_p50_s": 320.07,
+    "latency_p95_s": 320.07,
+    "mean_cost_usd": 0.0,
+    "total_cost_usd": 0.0
+  },
+  "by_tier": {
+    "T1": {
+      "n_queries": 1,
+      "n_answered": 1,
+      "n_errors": 0,
+      "n_pairs": 155,
+      "n_claims": 60,
+      "citation_accuracy": 14.3,
+      "link_validity": 4.5,
+      "relevance_rate": 14.3,
+      "support_rate": 100.0,
+      "effective_citations_per_report": 1.0,
+      "claim_recall": 100.0,
+      "uncited_claim_rate": 23.3,
+      "abstention_rate_t4": null,
+      "false_abstention_rate": 0.0,
+      "latency_p50_s": 320.07,
+      "latency_p95_s": 320.07,
+      "mean_cost_usd": 0.0,
+      "total_cost_usd": 0.0
+    }
+  },
+  "results": [
+    {
+      "query_id": "T1-01",
+      "tier": "T1",
+      "query": "At what temperature does water boil at sea level?",
+      "covered_claims": 1,
+      "expected_claims": 1,
+      "abstained": false,
+      "latency_s": 320.068,
+      "cost_usd": 0.0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "n_sources": 28,
+      "n_claims": 60,
+      "n_pairs": 155,
+      "error": "",
+      "pairs": [
+        {
+          "claim_index": 0,
+          "citation_number": 5,
+          "link_ok": true,
+          "relevant": false,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": ""
+        },
+        {
+          "claim_index": 0,
+          "citation_number": 6,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 0,
+          "citation_number": 7,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 0,
+          "citation_number": 8,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 0,
+          "citation_number": 9,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 0,
+          "citation_number": 10,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 0,
+          "citation_number": 11,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 0,
+          "citation_number": 13,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 0,
+          "citation_number": 14,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 0,
+          "citation_number": 15,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 1,
+          "citation_number": 5,
+          "link_ok": true,
+          "relevant": false,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": ""
+        },
+        {
+          "claim_index": 1,
+          "citation_number": 6,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 1,
+          "citation_number": 7,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 1,
+          "citation_number": 8,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 1,
+          "citation_number": 9,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 1,
+          "citation_number": 10,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 1,
+          "citation_number": 11,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 1,
+          "citation_number": 13,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 1,
+          "citation_number": 14,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 1,
+          "citation_number": 15,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 2,
+          "citation_number": 8,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 2,
+          "citation_number": 12,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 3,
+          "citation_number": 8,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 3,
+          "citation_number": 12,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 4,
+          "citation_number": 6,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 4,
+          "citation_number": 10,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 4,
+          "citation_number": 13,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 4,
+          "citation_number": 14,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 5,
+          "citation_number": 27,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 6,
+          "citation_number": 17,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 6,
+          "citation_number": 28,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 7,
+          "citation_number": 27,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 8,
+          "citation_number": 27,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 9,
+          "citation_number": 5,
+          "link_ok": true,
+          "relevant": false,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": ""
+        },
+        {
+          "claim_index": 9,
+          "citation_number": 6,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 9,
+          "citation_number": 7,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 9,
+          "citation_number": 8,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 9,
+          "citation_number": 9,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 9,
+          "citation_number": 10,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 9,
+          "citation_number": 11,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 9,
+          "citation_number": 13,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 9,
+          "citation_number": 14,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 9,
+          "citation_number": 15,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 10,
+          "citation_number": 8,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 10,
+          "citation_number": 12,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 11,
+          "citation_number": 10,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 11,
+          "citation_number": 13,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 11,
+          "citation_number": 14,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 12,
+          "citation_number": 8,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 12,
+          "citation_number": 17,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 15,
+          "citation_number": 5,
+          "link_ok": true,
+          "relevant": true,
+          "supported": true,
+          "evidence_quote": "\u2013 the lowest point in the U.S., at 282 feet below sea level \u2013 water boils at slightly above 212 [...] In fact, water will boil at about 202 degrees in Denver, due to the lower air pressure at such high elevations.",
+          "notes": ""
+        },
+        {
+          "claim_index": 15,
+          "citation_number": 6,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 15,
+          "citation_number": 7,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 15,
+          "citation_number": 8,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 15,
+          "citation_number": 9,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 15,
+          "citation_number": 10,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 15,
+          "citation_number": 11,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 15,
+          "citation_number": 12,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 15,
+          "citation_number": 13,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 15,
+          "citation_number": 14,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 15,
+          "citation_number": 15,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 16,
+          "citation_number": 6,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 16,
+          "citation_number": 10,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 16,
+          "citation_number": 13,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 16,
+          "citation_number": 14,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 17,
+          "citation_number": 8,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 17,
+          "citation_number": 12,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 18,
+          "citation_number": 8,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 18,
+          "citation_number": 12,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 19,
+          "citation_number": 10,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 19,
+          "citation_number": 11,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 19,
+          "citation_number": 13,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 19,
+          "citation_number": 14,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 20,
+          "citation_number": 7,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 21,
+          "citation_number": 9,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 26,
+          "citation_number": 5,
+          "link_ok": true,
+          "relevant": false,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": ""
+        },
+        {
+          "claim_index": 26,
+          "citation_number": 6,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 26,
+          "citation_number": 10,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 26,
+          "citation_number": 13,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 26,
+          "citation_number": 14,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 27,
+          "citation_number": 7,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 27,
+          "citation_number": 8,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 27,
+          "citation_number": 11,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 27,
+          "citation_number": 12,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 28,
+          "citation_number": 12,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 29,
+          "citation_number": 7,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 29,
+          "citation_number": 9,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 29,
+          "citation_number": 10,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 29,
+          "citation_number": 14,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 30,
+          "citation_number": 12,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 31,
+          "citation_number": 6,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 31,
+          "citation_number": 10,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 31,
+          "citation_number": 13,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 31,
+          "citation_number": 14,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 32,
+          "citation_number": 5,
+          "link_ok": true,
+          "relevant": false,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": ""
+        },
+        {
+          "claim_index": 32,
+          "citation_number": 6,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 32,
+          "citation_number": 7,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 32,
+          "citation_number": 8,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 32,
+          "citation_number": 9,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 32,
+          "citation_number": 10,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 32,
+          "citation_number": 11,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 32,
+          "citation_number": 12,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 32,
+          "citation_number": 13,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 32,
+          "citation_number": 14,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 32,
+          "citation_number": 15,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 33,
+          "citation_number": 6,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 33,
+          "citation_number": 10,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 33,
+          "citation_number": 13,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 33,
+          "citation_number": 14,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 35,
+          "citation_number": 7,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 35,
+          "citation_number": 8,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 35,
+          "citation_number": 10,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 35,
+          "citation_number": 11,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 35,
+          "citation_number": 13,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 35,
+          "citation_number": 14,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 36,
+          "citation_number": 8,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 36,
+          "citation_number": 12,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 37,
+          "citation_number": 10,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 37,
+          "citation_number": 14,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 39,
+          "citation_number": 8,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 39,
+          "citation_number": 17,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 40,
+          "citation_number": 8,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 40,
+          "citation_number": 17,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 41,
+          "citation_number": 12,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 46,
+          "citation_number": 5,
+          "link_ok": true,
+          "relevant": false,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": ""
+        },
+        {
+          "claim_index": 46,
+          "citation_number": 6,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 46,
+          "citation_number": 10,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 46,
+          "citation_number": 11,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 46,
+          "citation_number": 15,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 47,
+          "citation_number": 7,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 47,
+          "citation_number": 8,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 47,
+          "citation_number": 10,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 47,
+          "citation_number": 11,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 47,
+          "citation_number": 13,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 47,
+          "citation_number": 14,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 48,
+          "citation_number": 8,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 48,
+          "citation_number": 12,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 49,
+          "citation_number": 6,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 49,
+          "citation_number": 10,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 49,
+          "citation_number": 13,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 49,
+          "citation_number": 14,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 50,
+          "citation_number": 12,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 51,
+          "citation_number": 8,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 51,
+          "citation_number": 17,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 52,
+          "citation_number": 8,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 52,
+          "citation_number": 17,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 54,
+          "citation_number": 13,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 54,
+          "citation_number": 14,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 55,
+          "citation_number": 10,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 55,
+          "citation_number": 20,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 56,
+          "citation_number": 19,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 56,
+          "citation_number": 28,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 57,
+          "citation_number": 12,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 57,
+          "citation_number": 28,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        },
+        {
+          "claim_index": 58,
+          "citation_number": 27,
+          "link_ok": false,
+          "relevant": null,
+          "supported": null,
+          "evidence_quote": "",
+          "notes": "no URL on reference"
+        }
+      ]
+    }
+  ]
+}

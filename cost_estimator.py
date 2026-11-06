@@ -130,7 +130,6 @@ class TokenEstimator:
         self._tiktoken = _load_tiktoken()
         self._tokencost = _load_tokencost()
         self._genai_components = _load_genai_prices()
-        self._pricing_timestamp = datetime.now()  # Session-scoped timestamp for "freshness" calculation
     
     def _count_tokens_tiktoken(self, text: str, model: str = "gpt-3.5-turbo") -> Optional[int]:
         """Count tokens using tiktoken (OpenAI standard)."""
@@ -277,14 +276,11 @@ class TokenEstimator:
         total_max = int(total_avg * 1.2)
         
         # 2. Resolve Pricing (Layered)
-        staleness_days = (datetime.now() - self._pricing_timestamp).days
-        
-        # Layer 1: genai-prices
-        price_result = self._get_pricing_genai_prices(model, total_avg, 0) # total used as surrogate for rate check? No.
-        # We need independent input/output costs for accurate estimation
-        # But calc_price typically returns total.
-        # Let's calculate cost for the AVG case usage.
-        
+        # genai-prices does not expose a timestamp for its bundled price data,
+        # so true staleness cannot be determined offline. Report -1 (unknown)
+        # instead of a fake "0 days fresh" signal.
+        staleness_days = -1
+
         pricing_source = "unknown"
         cost_avg = 0.0
         
