@@ -46,22 +46,35 @@ each pair passes through three cumulative tiers:
 
 | Tier | Question | Failure means |
 | --- | --- | --- |
-| `link_ok` | Does the cited URL resolve to retrievable content? | dead link, paywall, missing capture |
+| `link_ok` | Was text captured for this citation, or did the URL answer if probed? | dead link, paywall, missing capture |
 | `relevant` | Is that content about the claim's subject? | citation laundering — real link, wrong page |
 | `supported` | Does the source actually establish the claim? | claim conflation, drift, hallucinated number |
 
 | Metric | Definition |
 | --- | --- |
-| `citation_accuracy` | supported pairs / evaluable pairs — **the headline** |
-| `link_validity` | reachable pairs / all pairs |
-| `relevance_rate` | on-topic pairs / reachable pairs |
-| `support_rate` | supported pairs / on-topic pairs |
+| `citation_accuracy` | supported pairs / **all** mapped pairs — **the headline** |
+| `content_available_rate` | pairs with captured content / all pairs |
+| `link_validity` | reachable pairs / all pairs — `n/a` unless `--check-links` ran |
+| `relevance_rate` | on-topic pairs / capturable pairs |
+| `support_rate` | supported pairs / on-topic pairs (conditional by design) |
+| `judge_failure_rate` | pairs the judge could not answer / capturable pairs |
 | `effective_citations_per_report` | supported pairs per report (volume guard) |
 | `claim_recall` | gold claims found / gold claims expected |
 | `uncited_claim_rate` | claims with no `[n]` / all claims |
 | `abstention_rate_t4` | unanswerable queries correctly refused |
 | `false_abstention_rate` | answerable queries wrongly refused |
+| `truncated_queries` | queries that hit the per-query pair cap — must be 0 |
 | `latency_p50/p95`, `mean_cost_usd` | cost of the run |
+
+Two properties matter more than the exact numbers:
+
+- **Every failure counts against `citation_accuracy`.** An unresolved link, an
+  off-topic page, an unsupported claim and a judge that failed all sit in the
+  denominator. You cannot raise the score by deleting citations or by having a
+  flaky judge.
+- **`content_available_rate` and `link_validity` are never conflated.** They
+  answer different questions; only one is populated per run and the run
+  metadata records which (`link_check_mode`).
 
 `abstention_rate_t4` and `false_abstention_rate` are only meaningful together:
 an agent that refuses everything scores 100% on the first and 100% on the
@@ -135,11 +148,35 @@ python -m eval compare --baseline results/before.json --candidate results/after.
 One variable per run. A pipeline change that moves three metrics at once
 tells you nothing.
 
-## Findings from the first live run
+## Defects found and fixed
+
+A line-by-line audit of this harness found four defects, all of which biased
+the score upward. All four are fixed, each with a regression test in
+`tests/test_eval_harness.py::TestRegressionFixes`.
+
+| ID | Defect | Fix |
+| --- | --- | --- |
+| F1 | Abstention was computed on the raw pipeline output, so the reference list's `[n]` markers vetoed every abstention in live mode | `ParsedReport.body` strips the bibliography; `detect_abstention` reads that |
+| F2 | `link_validity` reported captured content as if it were URL reachability | Split into `content_available_rate` and `link_validity` (the latter `n/a` unless `--check-links`) |
+| F3/F4 | The denominator was "pairs the judge could score", so dead links and judge failures raised the headline | `citation_accuracy` divides by all mapped pairs; `judge_failure_rate` is reported |
+| F11 | The 400-pair cap silently truncated long reports | `pairs_expected` and `truncated` are computed and rendered as a warning |
+
+Impact on the same recording (`results/recordings/T1-01.json`: 155 pairs, 1
+supported):
+
+| Metric | Pre-fix | Post-fix |
+| --- | --- | --- |
+| `citation_accuracy` | 14.3% (1/7) | 0.6% (1/155) |
+
+On the four hand-authored fixtures the numbers do not move (72.7% both ways):
+those fixtures contain no unresolved citations and no judge failures. That is
+the intended behaviour — the fix changes nothing where nothing was broken, and
+changes everything where the old denominator was hiding the damage.
+
+## Agent-side defects still open
 
 One live query (`T1-01`, deep research, 28 sources gathered) surfaced two
-defects that the unit tests could not see, because both are properties of the
-*assembled* output rather than of any single function:
+defects in the *agent's* output that the harness cannot fix for it:
 
 1. **Every reference is labelled `[1]`.** The `references` array in the draft
    JSON contains distinct URLs, but each carries the same bracketed number.

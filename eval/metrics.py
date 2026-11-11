@@ -1,17 +1,24 @@
 """Metric aggregation for the evaluation harness.
 
-Headline numbers follow the citation-evaluation literature so results are
-comparable rather than invented:
+Definitions, stated exactly as implemented - the previous version defined
+``citation_accuracy`` over "evaluable" pairs and silently dropped every pair
+the judge could not score or the fetcher could not resolve, which meant an
+agent was graded only on its successes (see eval/README.md, F3/F4):
 
-* ``citation_accuracy``  - supported (claim, source) pairs / evaluable pairs
-* ``link_validity``      - pairs whose cited URL is accessible
-* ``relevance_rate``     - on-topic pairs / accessible pairs
-* ``support_rate``       - supported pairs / on-topic pairs
-* ``effective_citations``- supported pairs per report (volume guard, so a
-  report cannot win on accuracy by citing a single lucky source)
+* ``citation_accuracy``   - supported pairs / ALL mapped (claim, citation) pairs.
+  An unresolved link, an off-topic source, an unsupported claim, and a judge
+  that failed to answer all count against the score.
+* ``link_validity``       - reachable pairs / all pairs. ``None`` unless the run
+  actually probed URLs (``link_check_mode="http"``); with captured content the
+  equivalent number is published as ``content_available_rate`` instead, because
+  the two are different measurements.
+* ``relevance_rate``      - on-topic pairs / pairs whose content was captured
+* ``support_rate``        - supported pairs / on-topic pairs (conditional by
+  design; read it next to citation_accuracy, never alone)
+* ``judge_failure_rate``  - pairs the judge could not answer / capturable pairs
 
 Behavioural and cost metrics sit alongside them: claim recall, abstention on
-unanswerable queries, false abstention, latency percentiles, and $/report.
+unanswerable queries, false abstention, truncation, latency, and $/report.
 """
 
 from __future__ import annotations
@@ -70,14 +77,23 @@ def percentile(values: Sequence[float], pct: float) -> float:
     return ordered[rank]
 
 
-def compute_metrics(results: Sequence[QueryResult]) -> Dict[str, object]:
-    """Aggregate every metric over a set of query results."""
+def compute_metrics(
+    results: Sequence[QueryResult],
+    link_check_mode: str = "captured_content",
+) -> Dict[str, object]:
+    """Aggregate every metric over a set of query results.
+
+    ``link_check_mode`` records how tier 1 was measured: ``"http"`` when URLs
+    were actually probed, ``"captured_content"`` when the run only confirmed
+    that the research step captured text for the citation.
+    """
     pairs = list(_pairs(results))
     n_pairs = len(pairs)
     link_ok = sum(1 for _, p in pairs if p.link_ok)
-    evaluable = [p for _, p in pairs if p.link_ok and p.relevant is not None]
-    relevant = [p for p in evaluable if p.relevant]
-    supported = [p for p in relevant if p.supported]
+    with_content = [p for _, p in pairs if p.link_ok]
+    unknown = [p for p in with_content if p.relevant is None]
+    relevant = [p for p in with_content if p.relevant]
+    supported = [p for _, p in pairs if p.is_supported]
 
     answered = [r for r in results if not r.error]
     scored_claims = [r for r in answered if r.expected_claims > 0]
@@ -98,15 +114,19 @@ def compute_metrics(results: Sequence[QueryResult]) -> Dict[str, object]:
         "n_errors": len(results) - len(answered),
         "n_pairs": n_pairs,
         "n_claims": total_claims,
-        "citation_accuracy": percent(len(supported), len(evaluable)),
-        "link_validity": percent(link_ok, n_pairs),
-        "relevance_rate": percent(len(relevant), len(evaluable)),
+        "citation_accuracy": percent(len(supported), n_pairs),
+        "link_check_mode": link_check_mode,
+        "link_validity": percent(link_ok, n_pairs) if link_check_mode == "http" else None,
+        "content_available_rate": percent(link_ok, n_pairs),
+        "relevance_rate": percent(len(relevant), len(with_content)),
         "support_rate": percent(len(supported), len(relevant)),
+        "judge_failure_rate": percent(len(unknown), len(with_content)),
         "effective_citations_per_report": round(len(supported) / len(answered), 2) if answered else 0.0,
         "claim_recall": percent(covered_claims, expected_claims),
         "uncited_claim_rate": percent(uncited_claims, total_claims),
         "abstention_rate_t4": percent(sum(1 for r in t4 if r.abstained), len(t4)),
         "false_abstention_rate": percent(sum(1 for r in answerable if r.abstained), len(answerable)),
+        "truncated_queries": sum(1 for r in answered if r.truncated),
         "latency_p50_s": round(percentile(latencies, 50), 2),
         "latency_p95_s": round(percentile(latencies, 95), 2),
         "mean_cost_usd": round(sum(costs) / len(costs), 5) if costs else 0.0,
@@ -114,9 +134,14 @@ def compute_metrics(results: Sequence[QueryResult]) -> Dict[str, object]:
     }
 
 
-def metrics_by_tier(results: Sequence[QueryResult]) -> Dict[str, Dict[str, object]]:
+def metrics_by_tier(
+    results: Sequence[QueryResult],
+    link_check_mode: str = "captured_content",
+) -> Dict[str, Dict[str, object]]:
     return {
-        tier: compute_metrics([r for r in results if r.tier == tier])
+        tier: compute_metrics(
+            [r for r in results if r.tier == tier], link_check_mode=link_check_mode
+        )
         for tier in TIERS
         if any(r.tier == tier for r in results)
     }

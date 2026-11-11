@@ -76,7 +76,12 @@ def cmd_run(args) -> int:
 
     payload = build_payload(
         results,
-        RunMetadata(mode=args.mode, judge_name=getattr(judge, "name", "unknown"), notes=args.notes or ""),
+        RunMetadata(
+            mode=args.mode,
+            judge_name=getattr(judge, "name", "unknown"),
+            notes=args.notes or "",
+            link_check_mode="http" if args.check_links else "captured_content",
+        ),
     )
     save_payload(payload, args.out)
     print(render_markdown(payload))

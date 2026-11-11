@@ -233,10 +233,19 @@ class TestMetrics:
             PairVerdict(2, 3, link_ok=False),
         ]
         metrics = compute_metrics([self._result(pairs)])
-        assert metrics["link_validity"] == pytest.approx(66.7)
+        # Denominator is every mapped pair, so the unresolved one counts.
+        assert metrics["link_validity"] is None
+        assert metrics["content_available_rate"] == pytest.approx(66.7)
         assert metrics["relevance_rate"] == pytest.approx(100.0)
         assert metrics["support_rate"] == pytest.approx(50.0)
-        assert metrics["citation_accuracy"] == pytest.approx(50.0)
+        assert metrics["citation_accuracy"] == pytest.approx(33.3)
+
+    def test_link_validity_only_reported_when_urls_probed(self):
+        pairs = [PairVerdict(0, 1, link_ok=True, relevant=True, supported=True)]
+        results = [self._result(pairs)]
+        assert compute_metrics(results)["link_validity"] is None
+        assert compute_metrics(results)["content_available_rate"] == pytest.approx(100.0)
+        assert compute_metrics(results, link_check_mode="http")["link_validity"] == pytest.approx(100.0)
 
     def test_abstention_only_with_thin_citations(self):
         assert detect_abstention("I could not find any reliable source for this.")
@@ -308,3 +317,85 @@ class TestEndToEnd:
         results = evaluate(gold, lambda q: PipelineOutput(report="", error="boom"), HeuristicJudge())
         assert results[0].error == "boom"
         assert compute_metrics(results)["n_errors"] == 1
+
+
+class TestRegressionFixes:
+    """One test per confirmed eval defect (F1, F2, F3/F4, F11).
+
+    Each of these fails on the pre-fix harness and passes after it.
+    """
+
+    ABSTAINING_DRAFT = json.dumps(
+        {
+            "sections": [
+                {
+                    "title": "Summary",
+                    "content": "I could not find any reliable source for this value. "
+                    "The answer cannot be determined from available data.",
+                }
+            ],
+            "references": [
+                "[1] A. https://a.example.com/x",
+                "[2] B. https://b.example.com/y",
+                "[3] C. https://c.example.com/z",
+            ],
+        }
+    )
+
+    def test_f1_abstention_ignores_reference_list(self):
+        """F1: the bibliography must not veto an abstention."""
+        assert detect_abstention(self.ABSTAINING_DRAFT) is False  # raw output
+        assert detect_abstention(parse_report(self.ABSTAINING_DRAFT).body) is True
+
+    def test_f3_judge_failure_lowers_rather_than_raises_accuracy(self):
+        """F3: a pair the judge could not score is a failure, not a deletion."""
+        good = [PairVerdict(0, 1, link_ok=True, relevant=True, supported=True)]
+        partly_unknown = good + [PairVerdict(1, 2, link_ok=True, relevant=None)]
+        clean = compute_metrics([QueryResult("q", "T1", "q", pairs=good)])
+        degraded = compute_metrics([QueryResult("q", "T1", "q", pairs=partly_unknown)])
+        assert clean["citation_accuracy"] == pytest.approx(100.0)
+        assert degraded["citation_accuracy"] == pytest.approx(50.0)
+        assert degraded["judge_failure_rate"] == pytest.approx(50.0)
+
+    def test_f4_unresolved_citations_count_against_the_score(self):
+        pairs = [
+            PairVerdict(0, 1, link_ok=True, relevant=True, supported=True),
+            PairVerdict(1, 2, link_ok=False),
+        ]
+        metrics = compute_metrics([QueryResult("q", "T1", "q", pairs=pairs)])
+        assert metrics["citation_accuracy"] == pytest.approx(50.0)
+
+    def test_f11_truncation_is_detected_and_flagged(self, monkeypatch):
+        """F11: hitting the pair cap must set a flag, not vanish."""
+        import eval.runner as runner
+
+        report = (
+            "## Body\n\nA claim with one citation [1]. Another claim with another [2].\n\n"
+            "## References\n\n"
+            "[1] A. Retrieved from https://a.example.com/x\n"
+            "[2] B. Retrieved from https://b.example.com/y\n"
+        )
+        only_one = [PairVerdict(0, 1, link_ok=True, relevant=True, supported=True)]
+        monkeypatch.setattr(
+            runner, "verify_pairs", lambda parsed, sources, judge, link_checker=None: list(only_one)
+        )
+
+        gold = [GoldQuery(id="T1-01", tier="T1", query="a question about things", expected_claims=())]
+        results = evaluate(gold, lambda q: PipelineOutput(report=report, sources=[]), HeuristicJudge())
+
+        assert results[0].pairs_expected == 2
+        assert len(results[0].pairs) == 1
+        assert results[0].truncated is True
+        payload = build_payload(results, RunMetadata(mode="replay", judge_name="heuristic"))
+        assert payload["metrics"]["truncated_queries"] == 1
+        assert "WARNING" in render_markdown(payload)
+
+    def test_abstention_end_to_end_reads_the_body(self):
+        gold = [GoldQuery(id="T4-01", tier="T4", query="what will happen tomorrow exactly", must_abstain=True)]
+        results = evaluate(
+            gold,
+            lambda q: PipelineOutput(report=self.ABSTAINING_DRAFT, sources=[]),
+            HeuristicJudge(),
+        )
+        assert results[0].abstained is True
+        assert compute_metrics(results)["abstention_rate_t4"] == pytest.approx(100.0)

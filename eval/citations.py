@@ -49,6 +49,17 @@ class ParsedReport:
     dangling: List[int] = field(default_factory=list)
 
     @property
+    def body(self) -> str:
+        """Report prose only - no reference list, no verification blocks.
+
+        This is what behavioural metrics must read. Scoring abstention on the
+        raw output let the reference list veto the result: every ``[n]`` in
+        the bibliography counted as an inline citation (see eval/README.md,
+        F1).
+        """
+        return "\n\n".join(self.sections.values())
+
+    @property
     def claim_count(self) -> int:
         return len(self.claims)
 
