@@ -40,6 +40,9 @@ def _is_excluded_domain(url: str, excluded_domains) -> bool:
     but NOT "netflix.com" (which a naive endswith("x.com") would exclude).
     """
     domain = urlparse(url).netloc.lower()
+    # netloc can carry credentials and a port ("user@x.com:443"); the host is
+    # what the exclusion list is written against.
+    domain = domain.rsplit("@", 1)[-1].split(":", 1)[0]
     return any(domain == ex or domain.endswith("." + ex) for ex in excluded_domains)
 
 def _strip_cache_flags(data):

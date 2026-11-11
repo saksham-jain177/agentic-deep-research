@@ -2,6 +2,7 @@ from langgraph.graph import StateGraph
 from research_agent import research_web
 from draft_agent import draft_tool
 from joblib import Memory
+from datetime import timedelta
 import os
 import json
 import time
@@ -26,6 +27,33 @@ def _cache_bucket() -> int:
         return 0
     return int(time.time() // (CACHE_TTL_HOURS * 3600))
 
+
+_cache_pruned = False
+
+
+def _prune_cache() -> None:
+    """Drop cache entries older than twice the TTL.
+
+    Folding the bucket into the cache key means an expired entry can never be
+    read again, but joblib would still keep it on disk forever. reduce_size()
+    is joblib's documented way to bound the directory.
+    """
+    if CACHE_TTL_HOURS <= 0:
+        return  # TTL disabled: every entry is still reachable, keep them all
+    try:
+        memory.reduce_size(age_limit=timedelta(hours=CACHE_TTL_HOURS * 2))
+    except Exception:
+        pass  # housekeeping only; never fail a research run for it
+
+
+def _maybe_prune_cache() -> None:
+    """Prune once per process, on the first cache miss."""
+    global _cache_pruned
+    if _cache_pruned:
+        return
+    _cache_pruned = True
+    _prune_cache()
+
 # Optional: Import vector store for summary storage
 VECTOR_STORE_ENABLED = os.getenv("ENABLE_VECTOR_STORE", "false").lower() == "true"
 vector_store = None
@@ -40,6 +68,7 @@ if VECTOR_STORE_ENABLED:
 @memory.cache
 def fetch_research_data(query: str, deep_research: bool = False, language: str = 'en', cache_bucket: int = 0) -> list:
     """Fetch research data using the research tool with caching."""
+    _maybe_prune_cache()
     # Map language names to codes
     lang_map = {'english': 'en', 'spanish': 'es', 'german': 'de'}
     lang_code = lang_map.get(language.lower(), 'en')

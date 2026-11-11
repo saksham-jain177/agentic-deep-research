@@ -1196,6 +1196,27 @@ def _bench_accumulate_chunk(chunk: dict, completion_chars: int, usage_tokens):
         completion_chars += len(choice.get("delta", {}).get("content") or "")
     return completion_chars, usage_tokens
 
+def _bench_summary(latency_s: float, completion_chars: int, usage_tokens, gen_time: float):
+    """Build a benchmark result from whatever the provider actually reported.
+
+    Returns None when the stream contained neither a usage block nor any
+    content delta - some providers emit only keep-alives in that case, and
+    reporting "1 token" would fabricate a throughput number rather than say
+    we have no data.
+    """
+    if usage_tokens:
+        tokens = usage_tokens
+    elif completion_chars:
+        tokens = max(1, round(completion_chars / 4))
+    else:
+        return None
+    return {
+        "latency_s": round(latency_s, 3),
+        "throughput_tps": round(tokens / max(gen_time, 1e-6), 1),
+        "tokens": tokens,
+    }
+
+
 @st.cache_data(ttl=900, show_spinner=False)
 def benchmark_model(model_id: str, max_new_tokens: int = 64) -> dict | None:
     api_key = os.getenv("OPENROUTER_API_KEY")
@@ -1242,10 +1263,9 @@ def benchmark_model(model_id: str, max_new_tokens: int = 64) -> dict | None:
                 completion_chars, usage_tokens = _bench_accumulate_chunk(chunk, completion_chars, usage_tokens)
         total = time.perf_counter() - t0
         gen_time = max(total - (ttfb or 0), 1e-6)
-        # Prefer exact usage from the provider; otherwise estimate ~4 chars/token.
-        tokens = usage_tokens if usage_tokens else max(1, round(completion_chars / 4))
-        throughput = tokens / gen_time
-        return {"latency_s": round(ttfb or total, 3), "throughput_tps": round(throughput, 1), "tokens": tokens}
+        # Exact provider usage when offered, else ~4 chars/token; None when the
+        # stream carried neither.
+        return _bench_summary(ttfb or total, completion_chars, usage_tokens, gen_time)
     except Exception:
         return None
 

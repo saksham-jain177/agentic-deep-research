@@ -187,7 +187,7 @@ This tool is **not**:
 
 ## Testing
 
-The test suite (282 offline tests — all LLM and Tavily calls are mocked; the full suite runs without API keys) covers evidence extraction, citation validation, section-level draft retry, reranking, prompt-injection sanitization, log redaction, token budgets, output-token caps, model fallback, timeouts, and the evaluation harness.
+The test suite (288 offline tests — all LLM and Tavily calls are mocked; the full suite runs without API keys) covers evidence extraction, citation validation, section-level draft retry, reranking, prompt-injection sanitization, log redaction, token budgets, output-token caps, model fallback, timeouts, and the evaluation harness.
 
 ```bash
 pytest tests/ -v
@@ -207,7 +207,7 @@ pytest tests/ -v
 ├── cost_estimator.py     # Token/cost estimation with uncertainty
 ├── citation_formatter.py # APA/MLA/IEEE/BibTeX generation with citation grounding
 ├── eval/                 # Benchmark harness: gold set, three-tier citation scoring, metrics
-└── tests/                # Pytest suite: 282 tests, all offline (LLM/Tavily mocked)
+└── tests/                # Pytest suite: 288 tests, all offline (LLM/Tavily mocked)
 ```
 
 ## Contributing

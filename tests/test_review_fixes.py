@@ -242,3 +242,61 @@ def test_vector_store_persists_on_fresh_dir(tmp_path):
     assert store.client.get_settings().is_persistent is True
     assert persist_dir.exists(), "PersistentClient should create the directory"
     assert (persist_dir / "chroma.sqlite3").exists(), "persistent client should create its sqlite db"
+
+
+# ---------------------------------------------------------------------------
+# Polish pass: port handling, benchmark honesty, bounded cache
+# ---------------------------------------------------------------------------
+
+def test_domain_filter_ignores_port_and_credentials():
+    """netloc may be user@host:port; the exclusion list targets the host."""
+    assert _is_excluded_domain("https://reddit.com:443/r/xyz", DEFAULT_EXCLUDED)
+    assert _is_excluded_domain("https://user:pw@www.reddit.com/r/xyz", DEFAULT_EXCLUDED)
+    assert not _is_excluded_domain("https://netflix.com:443/watch", DEFAULT_EXCLUDED)
+
+
+def test_bench_summary_returns_none_without_provider_data():
+    """No usage block and no deltas means no throughput - not '1 token/s'."""
+    ns = _extract_app_functions("_bench_summary")
+    assert ns["_bench_summary"](1.0, 0, None, 0.5) is None
+    assert ns["_bench_summary"](1.0, 0, 0, 0.5) is None
+
+
+def test_bench_summary_prefers_provider_usage():
+    ns = _extract_app_functions("_bench_summary")
+    result = ns["_bench_summary"](2.0, 400, 50, 2.0)
+    assert result == {"latency_s": 2.0, "throughput_tps": 25.0, "tokens": 50}
+
+
+def test_bench_summary_estimates_from_chars_when_usage_absent():
+    ns = _extract_app_functions("_bench_summary")
+    result = ns["_bench_summary"](1.0, 40, None, 2.0)
+    assert result["tokens"] == 10
+    assert result["throughput_tps"] == 5.0
+
+
+def test_cache_prune_is_skipped_when_ttl_disabled(monkeypatch):
+    """RESEARCH_CACHE_TTL_HOURS=0 keeps entries forever, so never prune."""
+    calls = []
+    monkeypatch.setattr(main_module, "CACHE_TTL_HOURS", 0)
+    monkeypatch.setattr(main_module.memory, "reduce_size", lambda **kw: calls.append(kw))
+    main_module._prune_cache()
+    assert calls == []
+
+
+def test_cache_prune_runs_once_and_swallows_errors(monkeypatch):
+    calls = []
+    monkeypatch.setattr(main_module, "CACHE_TTL_HOURS", 24)
+    monkeypatch.setattr(main_module, "_cache_pruned", False)
+    monkeypatch.setattr(main_module.memory, "reduce_size", lambda **kw: calls.append(kw))
+    main_module._maybe_prune_cache()
+    main_module._maybe_prune_cache()
+    assert len(calls) == 1, "pruning must not run on every cache miss"
+    assert "age_limit" in calls[0]
+
+    def boom(**kwargs):
+        raise RuntimeError("joblib cannot prune here")
+
+    monkeypatch.setattr(main_module, "_cache_pruned", False)
+    monkeypatch.setattr(main_module.memory, "reduce_size", boom)
+    main_module._maybe_prune_cache()  # must not raise
