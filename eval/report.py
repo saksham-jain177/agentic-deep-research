@@ -5,26 +5,30 @@ from __future__ import annotations
 from typing import Dict, List, Optional, Sequence
 
 HEADLINE_KEYS = (
-    ("citation_accuracy", "Citation accuracy"),
+    ("citation_accuracy", "Citation accuracy (all pairs)"),
+    ("content_available_rate", "Content captured for citation"),
+    ("link_validity", "Link validity (URL probed)"),
+    ("relevance_rate", "Relevance rate (of capturable)"),
     ("support_rate", "Support rate (of on-topic)"),
-    ("relevance_rate", "Relevance rate"),
-    ("link_validity", "Link validity"),
+    ("judge_failure_rate", "Judge failure rate"),
     ("effective_citations_per_report", "Effective citations / report"),
     ("claim_recall", "Gold claim recall"),
     ("uncited_claim_rate", "Uncited claim rate"),
     ("abstention_rate_t4", "Abstention on unanswerable (T4)"),
     ("false_abstention_rate", "False abstention (T1-T2)"),
+    ("truncated_queries", "Queries truncated at pair cap"),
     ("latency_p50_s", "Latency p50 (s)"),
     ("latency_p95_s", "Latency p95 (s)"),
     ("mean_cost_usd", "Mean cost / report (USD)"),
 )
 
-
 PERCENT_KEYS = {
     "citation_accuracy",
+    "content_available_rate",
+    "link_validity",
     "support_rate",
     "relevance_rate",
-    "link_validity",
+    "judge_failure_rate",
     "claim_recall",
     "uncited_claim_rate",
     "abstention_rate_t4",
@@ -99,6 +103,17 @@ def failure_summary(payload: Dict[str, object], limit: int = 8) -> str:
     return "\n".join(lines)
 
 
+def truncation_notice(metrics: Dict[str, object]) -> str:
+    """Loud notice when a run hit the per-query pair cap (F11)."""
+    truncated = metrics.get("truncated_queries") or 0
+    if not truncated:
+        return ""
+    return (
+        f"> **WARNING: {truncated} query(ies) hit the per-query pair cap and were scored on a "
+        f"prefix.** Metrics here understate the work; raise the cap or split the report.\n\n"
+    )
+
+
 def render_markdown(payload: Dict[str, object], title: str = "Deep Research Agent - Evaluation") -> str:
     metadata = payload.get("metadata", {})
     metrics = payload.get("metrics", {})
@@ -117,6 +132,7 @@ def render_markdown(payload: Dict[str, object], title: str = "Deep Research Agen
         "",
         format_metrics_table(metrics),
         "",
+        truncation_notice(metrics),
         "## By tier",
         "",
         format_tier_table(by_tier),
@@ -127,13 +143,19 @@ def render_markdown(payload: Dict[str, object], title: str = "Deep Research Agen
         "",
         "## Reading this table",
         "",
-        "- **Citation accuracy** is the headline: of all evaluable (claim, source) pairs, "
-        "how many had a working link, an on-topic source, and a source that actually "
-        "establishes the claim.",
-        "- **Support rate** isolates tier 3, so a high citation accuracy driven by easy "
-        "sources is visible rather than hidden.",
+        "- **Citation accuracy** is the headline and its denominator is every mapped "
+        "(claim, citation) pair. An unreachable link, an off-topic page, an unsupported "
+        "claim and a judge that failed all count against it - the score cannot be "
+        "raised by deleting citations or by a flaky judge.",
+        "- **Content captured** and **link validity** are different measurements. The "
+        "first says the research step stored text for that citation; the second says a "
+        "URL was probed and answered. Only one of them is shown at a time.",
+        "- **Support rate** is conditional on the source being on-topic; read it beside "
+        "citation accuracy, never alone.",
         "- **Abstention on T4** and **false abstention on T1-T2** must be read together; "
         "either alone is trivially gameable.",
+        "- **Queries truncated at pair cap** must be zero. A non-zero value means the "
+        "run scored a prefix of some reports and the metrics understate the work.",
         "",
     ]
     if metadata.get("notes"):

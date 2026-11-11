@@ -127,6 +127,10 @@ class QueryResult:
     output_tokens: int = 0
     n_sources: int = 0
     error: str = ""
+    # How many (claim, citation) pairs the report actually contained. If this
+    # exceeds len(pairs), the per-query cap silently truncated evaluation.
+    pairs_expected: int = 0
+    truncated: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -143,6 +147,8 @@ class QueryResult:
             "n_sources": self.n_sources,
             "n_claims": len(self.claims),
             "n_pairs": len(self.pairs),
+            "pairs_expected": self.pairs_expected,
+            "truncated": self.truncated,
             "error": self.error,
             "pairs": [p.__dict__ for p in self.pairs],
         }

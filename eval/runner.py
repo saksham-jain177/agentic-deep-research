@@ -38,6 +38,10 @@ class RunMetadata:
     started_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat(timespec="seconds"))
     git_commit: str = ""
     notes: str = ""
+    # "http" when every cited URL was actually probed, "captured_content" when
+    # tier 1 only confirms the research step captured text for that citation.
+    # These are different measurements and must not share a column name.
+    link_check_mode: str = "captured_content"
 
 
 def _git_commit() -> str:
@@ -211,9 +215,13 @@ def evaluate(
             parsed = parse_report(output.report)
             result.claims = parsed.claims
             result.pairs = verify_pairs(parsed, output.sources, judge, link_checker)
+            # Detect truncation rather than trusting the cap silently: the
+            # report tells us how many pairs there were.
+            result.pairs_expected = sum(len(c.citations) for c in parsed.claims)
+            result.truncated = len(result.pairs) < result.pairs_expected
             if gold.expected_claims:
                 result.covered_claims = count_covered_claims(parsed, gold)
-            result.abstained = detect_abstention(output.report)
+            result.abstained = detect_abstention(parsed.body)
 
         results.append(result)
 
@@ -226,8 +234,8 @@ def build_payload(results: Sequence[QueryResult], metadata: RunMetadata) -> Dict
             **asdict(metadata),
             "git_commit": metadata.git_commit or _git_commit(),
         },
-        "metrics": compute_metrics(results),
-        "by_tier": metrics_by_tier(results),
+        "metrics": compute_metrics(results, link_check_mode=metadata.link_check_mode),
+        "by_tier": metrics_by_tier(results, link_check_mode=metadata.link_check_mode),
         "results": [r.to_dict() for r in results],
     }
 
