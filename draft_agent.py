@@ -216,16 +216,6 @@ def apply_writing_style(prompt: str, style: str) -> str:
     return prompt + f"\n\nUse a {style_config['tone']} tone with {style_config['vocabulary']}, following a {style_config['structure']}."
 
 # Prompts for each section in deep research mode
-def get_deep_word_counts(target_word_count):
-    """Distribute the target word count across sections in deep mode."""
-    abstract = max(150, int(target_word_count * 0.05))  # 5%
-    intro = max(400, int(target_word_count * 0.15))  # 15%
-    lit_review = max(600, int(target_word_count * 0.20))  # 20%
-    findings = max(800, int(target_word_count * 0.30))  # 30%
-    analysis = max(800, int(target_word_count * 0.20))  # 20%
-    conclusion = max(400, int(target_word_count * 0.10))  # 10%
-    return abstract, intro, lit_review, findings, analysis, conclusion
-
 abstract_prompt = PromptTemplate(
     input_variables=["data", "word_count"],
     template="""
@@ -282,10 +272,14 @@ conclusion_prompt = PromptTemplate(
 
 # Function to clean <think> tags from text
 def clean_think_tags(text):
-    """Remove <think> tags and their contents from the text."""
+    """
+    Remove <think> tags and their contents from the text.
+
+    Only the tags are removed; whitespace is preserved so the Markdown
+    structure of the model output (lists, tables, paragraphs) survives.
+    """
     cleaned_text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
     cleaned_text = re.sub(r"</?think>", "", cleaned_text)
-    cleaned_text = re.sub(r"\s+", " ", cleaned_text).strip()
     return cleaned_text
 
 # Function to format Key Findings as a proper numbered list

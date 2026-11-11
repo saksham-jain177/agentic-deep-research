@@ -222,13 +222,13 @@ def verify_section(
 
     llm_local = _get_llm()
     if llm_local:
-        prompt = build_verification_prompt(
-            section_title, section_text, data,
-            language=resolve_verification_language(language),
-        )
         last_error = None
         for attempt in range(retries):
             try:
+                prompt = build_verification_prompt(
+                    section_title, section_text, data,
+                    language=resolve_verification_language(language),
+                )
                 response = llm_local.invoke([{"role": "user", "content": prompt}])
                 verdict = _normalize_verdict(
                     _parse_verdict_json(response.content), section_title, coverage

@@ -1,13 +1,58 @@
-from langgraph.graph import StateGraph  
-from research_agent import research_tool
+from langgraph.graph import StateGraph
+from research_agent import research_web
 from draft_agent import draft_tool
 from joblib import Memory
+from datetime import timedelta
 import os
 import json
+import time
 
 # Initialize caching with joblib
 memory = Memory("cache", verbose=0)
 # memory.clear()  # Don't clear on every import
+
+# Cache entries older than this many hours are treated as misses.
+# Set RESEARCH_CACHE_TTL_HOURS=0 to keep entries valid forever (old behavior).
+CACHE_TTL_HOURS = float(os.getenv("RESEARCH_CACHE_TTL_HOURS", "24"))
+
+
+def _cache_bucket() -> int:
+    """Return a time bucket used as part of the cache key.
+
+    joblib caches on argument values, so folding a coarse time bucket into
+    the arguments expires cached research every CACHE_TTL_HOURS without a
+    custom backend. Bucket 0 (TTL disabled) never changes.
+    """
+    if CACHE_TTL_HOURS <= 0:
+        return 0
+    return int(time.time() // (CACHE_TTL_HOURS * 3600))
+
+
+_cache_pruned = False
+
+
+def _prune_cache() -> None:
+    """Drop cache entries older than twice the TTL.
+
+    Folding the bucket into the cache key means an expired entry can never be
+    read again, but joblib would still keep it on disk forever. reduce_size()
+    is joblib's documented way to bound the directory.
+    """
+    if CACHE_TTL_HOURS <= 0:
+        return  # TTL disabled: every entry is still reachable, keep them all
+    try:
+        memory.reduce_size(age_limit=timedelta(hours=CACHE_TTL_HOURS * 2))
+    except Exception:
+        pass  # housekeeping only; never fail a research run for it
+
+
+def _maybe_prune_cache() -> None:
+    """Prune once per process, on the first cache miss."""
+    global _cache_pruned
+    if _cache_pruned:
+        return
+    _cache_pruned = True
+    _prune_cache()
 
 # Optional: Import vector store for summary storage
 VECTOR_STORE_ENABLED = os.getenv("ENABLE_VECTOR_STORE", "false").lower() == "true"
@@ -16,18 +61,22 @@ if VECTOR_STORE_ENABLED:
     try:
         from vector_store import get_vector_store
         vector_store = get_vector_store()
-    except:
+    except Exception:
         VECTOR_STORE_ENABLED = False
 
 # Define the research node to update the state
 @memory.cache
-def fetch_research_data(query: str, deep_research: bool = False, language: str = 'en') -> list:
+def fetch_research_data(query: str, deep_research: bool = False, language: str = 'en', cache_bucket: int = 0) -> list:
     """Fetch research data using the research tool with caching."""
+    _maybe_prune_cache()
     # Map language names to codes
     lang_map = {'english': 'en', 'spanish': 'es', 'german': 'de'}
     lang_code = lang_map.get(language.lower(), 'en')
-    
-    result = research_tool.run(query, deep_research=deep_research, language=lang_code)
+
+    # Call research_web directly: Tool.run() forwards unknown kwargs to the
+    # callback manager, not to the wrapped function, so deep_research and
+    # language passed via .run() were silently ignored.
+    result = research_web(query, deep_research, lang_code)
     if isinstance(result, list) and len(result) > 0 and isinstance(result[0], dict) and "error" in result[0]:
         raise Exception(f"Research failed: {result[0]['error']}")
     return result
@@ -37,7 +86,7 @@ def research_node(state):
     query = state["query"]
     deep_research = state.get("deep_research", False)
     language = state.get("language", "english")
-    research_data = fetch_research_data(query, deep_research, language)
+    research_data = fetch_research_data(query, deep_research, language, cache_bucket=_cache_bucket())
     state["research"] = research_data
     return state
 
@@ -76,7 +125,7 @@ def draft_node(state):
             if isinstance(result, str) and result.strip().startswith('{'):
                 try:
                     summary_data = json.loads(result)
-                except:
+                except json.JSONDecodeError:
                     pass
             
             if summary_data:

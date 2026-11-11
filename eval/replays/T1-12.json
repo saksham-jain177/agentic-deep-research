@@ -1,0 +1,26 @@
+{
+  "query": "What does HTTP status code 404 mean?",
+  "tier": "T1",
+  "latency_s": 11.8,
+  "input_tokens": 1800,
+  "output_tokens": 410,
+  "cost_usd": 0.0033,
+  "report": "## Meaning of 404\n\nA 404 response means the server could not find the requested resource [1]. RFC 9110 defines 404 as the Not Found status code [2]. Many sites return 404 for pages that were deleted [3].\n\n## References\n\n[1] MDN Web Docs. 404 Not Found. Retrieved from https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404\n[2] RFC 9110. HTTP Semantics. Retrieved from https://www.rfc-editor.org/rfc/rfc9110.html\n[3] Example parking page. Retrieved from https://example.com/gone\n",
+  "sources": [
+    {
+      "title": "404 Not Found",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+      "content": "The HTTP 404 Not Found response status code indicates that the server cannot find the requested resource. Links that lead to a 404 page are often called broken or dead links."
+    },
+    {
+      "title": "HTTP Semantics",
+      "url": "https://www.rfc-editor.org/rfc/rfc9110.html",
+      "content": "RFC 9110 defines the 404 status code as Not Found. The server did not find a current representation for the target resource."
+    },
+    {
+      "title": "Example parking page",
+      "url": "https://example.com/gone",
+      "content": "Welcome to Example.com. This domain is parked and may be available for purchase. Contact the registrar for details about this domain name."
+    }
+  ]
+}
