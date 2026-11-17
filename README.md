@@ -217,7 +217,8 @@ pytest tests/ -v
 3. Run tests (`pytest tests/ -v`)
 4. Submit a pull request
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines, and
+[ROADMAP.md](ROADMAP.md) for what is planned and why.
 
 ## License
 
