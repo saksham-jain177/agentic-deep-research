@@ -20,6 +20,18 @@ Status legend: `[ ]` open · `[x]` done · `[~]` partial.
   covered by `tests/test_citation_numbering.py`.
 - `[x]` **Test isolation** — `os.environ` is restored after every test, so
   `load_dotenv()` inside one test no longer decides another test's verdict.
+- `[x]` **Weighted per-section word budgets** — a 1000-word deep report asked
+  every section for 166 words; budgets now follow the section's role
+  (`_section_word_budget`), so Key Findings gets 270 and the Abstract 80.
+- `[x]` **Removed the lambda `Tool` wrapper** around `research_web`. Nothing
+  used it since the workflow started calling `research_web` directly, and it
+  relied on undocumented kwargs forwarding through `Tool.run`.
+- `[x]` **Eval coverage is now explicit** — a gold query with no replay
+  recording counts as *skipped*, not *errored*, and the table prints
+  `Queries scored 4 (10% of gold set)`. A partial replay can no longer be
+  misread as a 40-query benchmark (`results/replay-goldset.md`).
+- `[x]` **README links match the renamed repo** — the clone command, `cd`, and
+  the issues link said `AI-Agent-based-Deep-Research`; the discussions link 404s.
 
 ---
 
@@ -31,7 +43,7 @@ other deep-research clones.
 
 | # | Task | Why | Cost | Hrs |
 | --- | --- | --- | --- | --- |
-| 1 | **Re-record the live eval fixtures** with the current build (`python -m eval run --mode live --record-dir eval/replays`) and commit the before/after table. | The 0.6% citation-accuracy figure on record predates the numbering fix. Until it is re-measured you cannot claim the improvement, and the fix is invisible in the benchmark. ~28 searches + a few hundred completions on free tiers. | ~$0 | 2 |
+| 1 | **Re-record the live eval fixtures** with the current build (`python -m eval run --mode live --record-dir eval/replays`) and commit the before/after table. | Coverage is 4 of 40 (`eval/replays/` holds T1-01, T1-12, T2-01, T4-01), so every headline number describes a tenth of the gold set. Until the fix is re-measured you cannot claim it. ~28 searches + a few hundred completions on free tiers. | ~$0 | 2 |
 | 2 | **Close eval findings F5 and F8.** F5: source matching is positional/substring, so a claim can be credited to the wrong source — an over-count, the one failure mode a benchmark must not have. F8: Cohen's κ is computed but never enforced in the run path, so `calibrate`'s gate is decorative. | The harness's credibility is the project's credibility. | $0 | 4 |
 | 3 | **Grow the gold set from 40 to ~120 queries**, keeping the T1–T4 stratification. | 40 is a regression detector, not a capability claim (the README says so honestly). At 120 with the same tiers you can publish a per-tier table that survives scrutiny. Source queries from HotpotQA/SimpleQA/FRAMES public samples — free, licensed, and already curated by others. | $0 | 6 |
 | 4 | **Publish a benchmark page**: one Markdown file per release with the metric table, the exact command to reproduce it, the commit SHA, and the fixture set. | This is the artifact a reviewer actually reads. Nobody runs your code first; they read your numbers and your method. | $0 | 2 |
@@ -41,7 +53,7 @@ other deep-research clones.
 
 | # | Task | Why | Cost | Hrs |
 | --- | --- | --- | --- | --- |
-| 6 | **Upgrade off LangChain 0.1.x** (open item 9 in `KNOWN_ISSUES.md`) and delete the `pydantic.v1` shim. | An EOL-pinned framework is the first thing that ages the repo in a diff review. It is mechanical, and 305 offline tests make it safe. | $0 | 6 |
+| 6 | **Upgrade off LangChain 0.1.x** (open item 9 in `KNOWN_ISSUES.md`) and delete the `pydantic.v1` shim. | An EOL-pinned framework is the first thing that ages the repo in a diff review. It is mechanical, and 317 offline tests make it safe. | $0 | 6 |
 | 7 | **Add a security writeup** (`SECURITY.md` + a short doc) covering the paths already built: `sanitize.py` prompt-injection neutralisation of fetched HTML, `log_redaction.py`, PDF escaping, offline key validation. Include an adversarial test fixture that shows a poisoned page failing to steer the report. | Retrieval-origin prompt injection is the most-asked design question in agent interviews, and you already have the mitigation — it is just undocumented. This is the highest hiring-signal-per-hour item on this list. | $0 | 4 |
 | 8 | **Expose the agent over MCP** (a thin stdio server wrapping the research tool). | Turns "another Streamlit app" into "a capability other agents can call", and it is the interface convention the ecosystem settled on. | $0 | 5 |
 | 9 | **Cut the report to a real product surface**: one command (`python -m main "query" --deep --out report.md`), one hosted demo, one GIF in the README. | Traction follows the first 20 seconds. The library is deep; the entry point is not obvious. | $0 | 3 |

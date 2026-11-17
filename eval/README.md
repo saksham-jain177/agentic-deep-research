@@ -39,6 +39,12 @@ python -m eval report --results results/smoke.json --out results/smoke.md
 A full run over the shipped fixtures is a smoke test, not a benchmark — see
 *Recording fixtures* below to cover all 40 queries.
 
+`python -m eval run --mode replay` walks the whole gold set and reports the
+gap explicitly: queries without a recording count as **skipped**, not errors,
+and the table prints `Queries scored 4 (10% of gold set)`. Committed example:
+[results/replay-goldset.md](../results/replay-goldset.md). Quote a headline
+number together with its coverage row, never on its own.
+
 ## What is measured
 
 Every `[n]` citation in the report becomes one **(claim, source) pair**, and

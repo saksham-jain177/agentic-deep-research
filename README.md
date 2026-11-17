@@ -117,8 +117,8 @@ flowchart LR
 
 ```bash
 # Clone
-git clone https://github.com/saksham-jain177/AI-Agent-based-Deep-Research.git
-cd AI-Agent-based-Deep-Research
+git clone https://github.com/saksham-jain177/agentic-deep-research.git
+cd agentic-deep-research
 
 # Install
 pip install -r requirements.txt
@@ -187,7 +187,7 @@ This tool is **not**:
 
 ## Testing
 
-The test suite (305 offline tests — all LLM and Tavily calls are mocked; the full suite runs without API keys) covers evidence extraction, citation validation and bibliography numbering, section-level draft retry, reranking, prompt-injection sanitization, log redaction, token budgets, output-token caps, model fallback, timeouts, and the evaluation harness.
+The test suite (317 offline tests — all LLM and Tavily calls are mocked; the full suite runs without API keys) covers evidence extraction, citation validation and bibliography numbering, section-level draft retry, reranking, prompt-injection sanitization, log redaction, token budgets, output-token caps, model fallback, timeouts, and the evaluation harness.
 
 ```bash
 pytest tests/ -v
@@ -207,7 +207,7 @@ pytest tests/ -v
 ├── cost_estimator.py     # Token/cost estimation with uncertainty
 ├── citation_formatter.py # APA/MLA/IEEE/BibTeX generation with citation grounding
 ├── eval/                 # Benchmark harness: gold set, three-tier citation scoring, metrics
-└── tests/                # Pytest suite: 305 tests, all offline (LLM/Tavily mocked)
+└── tests/                # Pytest suite: 317 tests, all offline (LLM/Tavily mocked)
 ```
 
 ## Contributing
@@ -226,4 +226,4 @@ MIT License — use freely for personal or commercial projects.
 
 ---
 
-**Questions?** [Open an issue](https://github.com/saksham-jain177/AI-Agent-based-Deep-Research/issues) or [start a discussion](https://github.com/saksham-jain177/AI-Agent-based-Deep-Research/discussions).
+**Questions?** [Open an issue](https://github.com/saksham-jain177/agentic-deep-research/issues).
