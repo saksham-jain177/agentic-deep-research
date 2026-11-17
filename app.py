@@ -593,6 +593,17 @@ def _pdf_escape(text: str) -> str:
     """
     return html.escape(str(text), quote=False)
 
+
+def _reference_line(number: int, ref) -> str:
+    """Render one bibliography entry without printing its number twice.
+
+    draft_agent stamps the authoritative `[n]` on each reference so the
+    printed number matches the inline markers in the body. The ordinal prefix
+    is kept only as a fallback for styles that carry no marker (BibTeX).
+    """
+    text = str(ref)
+    return text if re.match(r"^\[\d+\]", text) else f"{number}. {text}"
+
 def generate_pdf(query, data, summary, deep_research=False):
     """Generate a PDF report with query, data, and summary in a research paper format."""
     # Parse JSON if needed
@@ -720,7 +731,7 @@ def generate_pdf(query, data, summary, deep_research=False):
             story.append(Paragraph("References", styles['Heading2']))
             story.append(Spacer(1, 12))
             for i, ref in enumerate(refs, 1):
-                ref_para = Paragraph(f"{i}. {_pdf_escape(ref)}", styles['Reference'])
+                ref_para = Paragraph(_pdf_escape(_reference_line(i, ref)), styles['Reference'])
                 story.append(ref_para)
     else:
         # Fallback to old text processing
@@ -758,7 +769,7 @@ def generate_pdf(query, data, summary, deep_research=False):
             for i, ref in enumerate(references, 1):
                 formatted_ref = format_reference_for_pdf(ref)
                 if formatted_ref:
-                    ref_para = Paragraph(f"{i}. {_pdf_escape(formatted_ref)}", styles['Reference'])
+                    ref_para = Paragraph(_pdf_escape(_reference_line(i, formatted_ref)), styles['Reference'])
                     story.append(ref_para)
 
     doc.build(story, onFirstPage=on_page, onLaterPages=on_page)
@@ -859,7 +870,7 @@ def generate_docx(query, data, summary, deep_research=False):
                 p.paragraph_format.left_indent = Inches(0.5)
                 p.paragraph_format.first_line_indent = Inches(-0.5)
                 p.paragraph_format.space_after = Pt(12)
-                p.add_run(f"{i}. {ref}")
+                p.add_run(_reference_line(i, ref))
     else:
         # Fallback to old text processing
         sections = summary.split("\n\n") if isinstance(summary, str) else []
@@ -892,7 +903,7 @@ def generate_docx(query, data, summary, deep_research=False):
                     p.paragraph_format.left_indent = Inches(0.5)
                     p.paragraph_format.first_line_indent = Inches(-0.5)
                     p.paragraph_format.space_after = Pt(12)
-                    p.add_run(f"{i}. {formatted_ref}")
+                    p.add_run(_reference_line(i, formatted_ref))
 
     buffer = io.BytesIO()
     doc.save(buffer)
@@ -1554,7 +1565,7 @@ if st.session_state.research_data and st.session_state.response and not st.sessi
     if refs:
         with st.expander("References", expanded=True):
             for i, ref in enumerate(refs, 1):
-                st.markdown(f"{i}. {ref}")
+                st.markdown(_reference_line(i, ref))
     
     # Show word count info
     # Count the words actually rendered (sections + references), not the raw
@@ -1642,7 +1653,7 @@ if st.session_state.research_data and st.session_state.response:
             if refs:
                 lines.append("\n## References\n")
                 for i, r in enumerate(refs, 1):
-                    lines.append(f"{i}. {r}")
+                    lines.append(_reference_line(i, r))
             md_data = "\n".join(lines)
         except Exception:
             md_data = st.session_state.response
@@ -1703,7 +1714,7 @@ if st.session_state.research_data and st.session_state.response:
             if refs:
                 text_lines.append(f"\nREFERENCES\n{'-'*10}\n")
                 for i, ref in enumerate(refs, 1):
-                    text_lines.append(f"{i}. {ref}\n")
+                    text_lines.append(f"{_reference_line(i, ref)}\n")
             
             txt_data = "\n".join(text_lines)
         except Exception:
