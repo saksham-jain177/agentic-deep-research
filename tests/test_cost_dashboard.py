@@ -20,7 +20,11 @@ from cost_dashboard import (
 
 
 @pytest.fixture
-def tracker():
+def tracker(monkeypatch):
+    # Unlabelled records fall back to os_model_default(); clear the env so the
+    # expected "unknown" label holds on any machine, not just a clean one.
+    monkeypatch.delenv("OPENROUTER_MODEL", raising=False)
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
     t = CostRunTracker(run_id="run-test", deep_research=True, query="q")
     t.record("research", input_tokens=1000, output_tokens=500)
     t.record("draft", input_tokens=2000, output_tokens=3000)
