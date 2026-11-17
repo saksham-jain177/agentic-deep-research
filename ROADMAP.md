@@ -73,12 +73,14 @@ other deep-research clones.
 
 Every number in this README was produced by your harness, on your queries, with
 your judge. That is the weakest kind of evidence and reviewers know it. These
-three items cost about a weekend and change the class of the claim.
+three items change the class of the claim. Items 16 and 18 are a weekend at ~$0;
+item 17 is the only one in this plan that costs real money, and the row states
+what it actually costs rather than hoping it is free.
 
 | # | Task | Why | Cost | Hrs |
 | --- | --- | --- | --- | --- |
-| 16 | Run **[DeepResearch Bench](https://deepresearch-bench.github.io/)** (ICLR 2026: 100 PhD-level tasks across 22 fields, RACE + FACT scoring) against the agent — start with a 10-task pilot, free-tier models. | It is the one public benchmark built for exactly this genre of agent, with a leaderboard others are on. Publishing the split plus the exact config turns "self-reported" into "reproducible by a stranger". | ~$0–5 (only the judge may need credits) | 6 |
-| 17 | **Submit the run to the leaderboard** if the pilot is respectable. | Being listed beside named systems is a credential; a star count is a popularity contest. | $0 | 2 |
+| 16 | **Self-score a 10-task pilot with [DeepResearch Bench](https://deepresearch-bench.github.io/)** (100 PhD-level tasks, 22 fields; RACE for report quality, FACT for citation support) using its public harness: your agent generates, their pipeline judges. | It is the one public benchmark built for exactly this genre, and FACT (extract statement-URL pairs, then check whether the cited page supports the claim) is a close relative of your three-tier citation scoring, so the comparison is apples-ish rather than decorative. Scoring yourself with *their* harness and publishing the config is still reproducible by a stranger. | $0–2 (FACT also wants a Jina scraping key) | 6 |
+| 17 | **Official leaderboard entry**, if the pilot is respectable. Verified mechanics: email the two listed USTC maintainers with (a) a **temporary key with GPT-5.5 access** for their evaluation, (b) raw reports in their `raw_data/*.jsonl` shape, (c) a reproducibility link, (d) model name + licence. Cap the key and expect them to spend against it. | Being listed beside named systems is a credential; a star count is a popularity contest. This is the one item in the plan that is genuinely not $0: the official path pays for *their* judge on *your* key, and the number is only comparable if the model metadata and config are disclosed. | ~$20–60 of GPT-5.5 evaluation spend | 3 |
 | 18 | **Release the 40-query gold set as a dataset** (Hugging Face, CC-BY) with the tier schema and the three-tier verification rubric. | Datasets get cited, forked and linked long after a repo is forgotten, and it makes item 3 (grow to 120) a community task instead of a personal one. | $0 | 2 |
 
 ## P1 — the gaps a senior reviewer looks for
