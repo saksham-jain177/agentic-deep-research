@@ -7,6 +7,16 @@ Generate comprehensive research reports on any topic using AI-powered web search
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.0+-FF4B4B.svg)](https://streamlit.io)
 
+## Why this and not GPT-Researcher or ChatGPT Deep Research?
+
+Those optimise for a readable report; this one optimises for a **defensible** one, and
+measures the difference. It scores its own citations against a fixed 40-query gold set,
+publishes the command that reproduces every number in this README, and prints the
+coverage alongside the score — so a measurement over 4 recorded queries is labelled 10%,
+not passed off as the whole benchmark. The visible consequence is the boring one that
+matters: abstention is graded, contradictions are surfaced instead of averaged, and a
+citation that does not establish its claim costs the run a point.
+
 ## Problem
 
 Researching a topic thoroughly is time-consuming. You need to find sources, evaluate credibility, synthesize information, and format citations—all before you even start writing.
@@ -21,7 +31,21 @@ This tool automates the research workflow:
 4. **Synthesize** — LLM drafts structured reports in your chosen style; only failed sections are retried, not the whole report
 5. **Export** — Download as PDF, Word, Markdown, or BibTeX
 
-**[Live Demo →](https://deep-research-ai-agent.streamlit.app/)**
+**Live demo:** the hosted app at [deep-research-ai-agent.streamlit.app](https://deep-research-ai-agent.streamlit.app/)
+is currently behind a Streamlit Community Cloud sign-in wall, so it is not usable as a demo for
+visitors. Two ways that do work, both free:
+
+```bash
+python stream_cli.py "impact of sugar on metabolic health" --deep --out report.md   # real run, your keys
+python stream_cli.py --mock                                                         # offline demo, no keys at all
+```
+
+The first is the whole product in one command: it searches, drafts section by section with a live
+verdict per section, and writes a Markdown report to `report.md`. The second stubs the model so you
+can see the streaming and verification protocol before spending a credit.
+
+*(A recorded 60-second GIF embedded here would convert more visitors than either URL, and cannot
+rot. Tracked in [ROADMAP.md](ROADMAP.md), P1.)*
 
 ## Output Quality Guarantees
 
@@ -129,6 +153,12 @@ cp .env.example .env
 
 # Run
 streamlit run app.py
+
+# Or one command, to a file
+python stream_cli.py "your research query" --deep --out report.md
+
+# Or see it work with no keys and no spend
+python stream_cli.py --mock
 ```
 
 **Required API Keys:**
@@ -187,7 +217,7 @@ This tool is **not**:
 
 ## Testing
 
-The test suite (317 offline tests — all LLM and Tavily calls are mocked; the full suite runs without API keys) covers evidence extraction, citation validation and bibliography numbering, section-level draft retry, reranking, prompt-injection sanitization, log redaction, token budgets, output-token caps, model fallback, timeouts, and the evaluation harness.
+The test suite (325 offline tests — all LLM and Tavily calls are mocked; the full suite runs without API keys) covers evidence extraction, citation validation and bibliography numbering, section-level draft retry, reranking, prompt-injection sanitization, log redaction, token budgets, output-token caps, model fallback, timeouts, and the evaluation harness.
 
 ```bash
 pytest tests/ -v
@@ -207,7 +237,7 @@ pytest tests/ -v
 ├── cost_estimator.py     # Token/cost estimation with uncertainty
 ├── citation_formatter.py # APA/MLA/IEEE/BibTeX generation with citation grounding
 ├── eval/                 # Benchmark harness: gold set, three-tier citation scoring, metrics
-└── tests/                # Pytest suite: 317 tests, all offline (LLM/Tavily mocked)
+└── tests/                # Pytest suite: 325 tests, all offline (LLM/Tavily mocked)
 ```
 
 ## Contributing
@@ -217,8 +247,11 @@ pytest tests/ -v
 3. Run tests (`pytest tests/ -v`)
 4. Submit a pull request
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines, and
-[ROADMAP.md](ROADMAP.md) for what is planned and why.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines,
+[ROADMAP.md](ROADMAP.md) for what is planned and why,
+[CHANGELOG.md](CHANGELOG.md) for what shipped, and
+[SECURITY.md](SECURITY.md) for the threat model — including which of the protections here
+are heuristics rather than guarantees.
 
 ## License
 
