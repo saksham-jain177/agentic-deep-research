@@ -49,7 +49,12 @@ def format_metrics_table(metrics: Dict[str, object]) -> str:
     for key, label in HEADLINE_KEYS:
         suffix = "%" if key in PERCENT_KEYS else ""
         lines.append(f"| {label} | {_fmt(metrics.get(key), suffix)} |")
-    lines.append(f"| Queries evaluated | {metrics.get('n_queries', 0)} |")
+    lines.append(f"| Queries in gold set | {metrics.get('n_queries', 0)} |")
+    lines.append(
+        f"| Queries scored | {metrics.get('n_answered', 0)} "
+        f"({_fmt(metrics.get('coverage_pct'), '%')} of gold set) |"
+    )
+    lines.append(f"| Skipped, not attempted | {metrics.get('n_skipped', 0)} |")
     lines.append(f"| Errors | {metrics.get('n_errors', 0)} |")
     lines.append(f"| Scored pairs | {metrics.get('n_pairs', 0)} |")
     return "\n".join(lines)

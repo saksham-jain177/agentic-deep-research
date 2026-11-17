@@ -26,7 +26,7 @@ from __future__ import annotations
 import re
 from typing import Dict, Iterable, List, Optional, Sequence
 
-from .schema import QueryResult, TIERS
+from .schema import QueryResult, SKIP_PREFIX, TIERS
 
 ABSTENTION_PATTERNS = (
     r"\bcould not (?:find|locate|identify|verify)\b",
@@ -96,6 +96,8 @@ def compute_metrics(
     supported = [p for _, p in pairs if p.is_supported]
 
     answered = [r for r in results if not r.error]
+    skipped = [r for r in results if str(r.error).startswith(SKIP_PREFIX)]
+    errored = [r for r in results if r.error and not str(r.error).startswith(SKIP_PREFIX)]
     scored_claims = [r for r in answered if r.expected_claims > 0]
     expected_claims = sum(r.expected_claims for r in scored_claims)
     covered_claims = sum(r.covered_claims for r in scored_claims)
@@ -111,7 +113,9 @@ def compute_metrics(
     return {
         "n_queries": len(results),
         "n_answered": len(answered),
-        "n_errors": len(results) - len(answered),
+        "n_skipped": len(skipped),
+        "n_errors": len(errored),
+        "coverage_pct": percent(len(answered), len(results)),
         "n_pairs": n_pairs,
         "n_claims": total_claims,
         "citation_accuracy": percent(len(supported), n_pairs),

@@ -16,7 +16,7 @@ from eval.citations import extract_references, parse_report, split_claims  # noq
 from eval.goldset import parse_goldset, validate_goldset, tier_counts  # noqa: E402
 from eval.judge import HeuristicJudge, LLMJudge, content_tokens  # noqa: E402
 from eval.metrics import cohen_kappa, compute_metrics, detect_abstention  # noqa: E402
-from eval.report import compare_runs, render_markdown  # noqa: E402
+from eval.report import compare_runs, format_metrics_table, render_markdown  # noqa: E402
 from eval.runner import RunMetadata, build_payload, evaluate, replay_pipeline  # noqa: E402
 from eval.schema import GoldClaim, GoldQuery, PipelineOutput, QueryResult, PairVerdict, extract_domain  # noqa: E402
 from eval.verify import claim_matches, count_covered_claims, verify_pairs  # noqa: E402
@@ -317,6 +317,46 @@ class TestEndToEnd:
         results = evaluate(gold, lambda q: PipelineOutput(report="", error="boom"), HeuristicJudge())
         assert results[0].error == "boom"
         assert compute_metrics(results)["n_errors"] == 1
+
+
+class TestCoverageIsNotAnError:
+    """A replay over a gold set with only some recordings scored must say so.
+
+    ``eval/replays`` holds four recordings while the gold set holds forty
+    queries. Counting the 36 unattempted queries as errors still left the
+    headline reading as if 40 queries had been measured, which is exactly how a
+    4-query smoke run ends up quoted on a resume as a 40-query benchmark.
+    """
+
+    GOLD = [
+        GoldQuery(id="T1-01", tier="T1",
+                  query="At what temperature does water boil at sea level?",
+                  expected_claims=(GoldClaim("Water boils at 100 degrees Celsius at sea level"),)),
+        GoldQuery(id="T2-99", tier="T2",
+                  query="a synthesis question that has no recording anywhere",
+                  expected_claims=(GoldClaim("Anything at all"),)),
+    ]
+
+    @pytest.fixture
+    def metrics(self):
+        replays = os.path.join(os.path.dirname(os.path.dirname(__file__)), "eval", "replays")
+        results = evaluate(self.GOLD, replay_pipeline(replays), HeuristicJudge())
+        return compute_metrics(results)
+
+    def test_unattempted_query_is_skipped_not_errored(self, metrics):
+        assert metrics["n_skipped"] == 1
+        assert metrics["n_errors"] == 0
+
+    def test_coverage_reports_the_scored_share(self, metrics):
+        assert metrics["n_queries"] == 2
+        assert metrics["n_answered"] == 1
+        assert metrics["coverage_pct"] == 50.0
+
+    def test_table_prints_coverage_and_skip_rows(self, metrics):
+        table = format_metrics_table(metrics)
+        assert "| Queries in gold set | 2 |" in table
+        assert "| Queries scored | 1 (50% of gold set) |" in table
+        assert "| Skipped, not attempted | 1 |" in table
 
 
 class TestRegressionFixes:

@@ -606,6 +606,33 @@ def _uncited_paragraphs(text: str):
     return flagged
 
 
+_SECTION_WEIGHTS = {
+    "Abstract": 0.08,
+    "Introduction": 0.15,
+    "Literature Review": 0.20,
+    "Key Findings": 0.27,
+    "Analysis": 0.22,
+    "Conclusion": 0.08,
+}
+
+
+def _section_word_budget(section_names, target_word_count: int) -> Dict[str, int]:
+    """Split the word target by section role rather than dividing it equally.
+
+    `target_word_count // len(sections)` asks a 1000-word deep report for a
+    166-word abstract and a 166-word literature review, so the sections that
+    carry the evidence come out under-length for the job they have to do.
+    Weights are normalised over the sections actually present, so the target
+    is met whichever mode or subset is in play.
+    """
+    weights = [_SECTION_WEIGHTS.get(name, 1.0) for name in section_names]
+    total_weight = sum(weights) or 1.0
+    return {
+        name: max(60, int(round(target_word_count * w / total_weight)))
+        for name, w in zip(section_names, weights)
+    }
+
+
 # Drafting function with retry logic and deep research support
 def draft_answer(
     data: List[Dict[str, Any]], 
@@ -688,12 +715,15 @@ def draft_answer(
         current_llm = llm_instance
         current_model_idx = 0
 
+        section_budgets = _section_word_budget(
+            [name for name, _ in sections], target_word_count)
+
         for section_name, prompt_template in sections:
             messages = [
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": prompt_template.format(
                     data=data_str,
-                    word_count=target_word_count // len(sections)
+                    word_count=section_budgets[section_name]
                 )}
             ]
 
@@ -902,6 +932,8 @@ def stream_draft_answer(
 
     citation_registry = _CitationRegistry()
     completed_sections = []
+    section_budgets = _section_word_budget(
+        [name for name, _ in sections], target_word_count)
     used_model = os.getenv("OPENROUTER_MODEL") or os.getenv("OPENAI_MODEL") or "unknown"
 
     import verification_node
@@ -911,7 +943,7 @@ def stream_draft_answer(
             {"role": "system", "content": system_message},
             {"role": "user", "content": prompt_template.format(
                 data=data_str,
-                word_count=target_word_count // len(sections)
+                word_count=section_budgets[section_name]
             )}
         ]
 

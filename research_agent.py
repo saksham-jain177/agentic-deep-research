@@ -3,7 +3,6 @@ import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
-from langchain.tools import Tool
 from tavily import TavilyClient
 from urllib.parse import urlparse
 from typing import List, Dict, Any
@@ -226,9 +225,3 @@ def research_web(query, deep_research=False, language='en'):
         return data
     except Exception as e:
         raise Exception(f"Research failed: {str(e)}")
-
-research_tool = Tool(
-    name="WebResearch",
-    func=lambda query, deep_research=False, language='en': research_web(query, deep_research, language),
-    description="Fetches data from the web based on a query. Supports deep research mode with more results and vector store integration."
-)
