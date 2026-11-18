@@ -151,7 +151,8 @@ def _mock_stream(deep: bool, words: int):
     try:
         with ExitStack() as stack:
             for target in ("draft_agent.ChatOpenAI", "verification_node.ChatOpenAI",
-                           "contradiction_detector.ChatOpenAI"):
+                           "contradiction_detector.ChatOpenAI",
+                           "evidence_extractor.ChatOpenAI"):
                 stack.enter_context(patch(target, StubLLM))
             yield from draft_agent.stream_draft_answer(
                 [{"title": "Climate report", "url": "https://example.com/climate",

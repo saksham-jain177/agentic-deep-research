@@ -13,7 +13,20 @@ numbers are cited from `results/replay-goldset.md` and carry their coverage
 
 ## [Unreleased]
 
+### Added
+- **MCP stdio server** (ROADMAP item 8): `mcp_server.py` exposes the pipeline to any AI agent over the
+  Model Context Protocol — `deep_research` (mock/live, `MAX_RUN_COST_USD`-gated, optional save into
+  `results/`) and `read_report` (sandboxed to `results/`, `.md` only). Zero new dependencies: the
+  JSON-RPC 2.0 stdio transport is implemented in the file. Tool execution runs with stdout redirected
+  to stderr so pipeline chatter cannot corrupt the frame stream; failing tool calls return structured
+  `isError` results and the server survives. 17 tests (`tests/test_mcp_server.py`), plus an
+  end-to-end subprocess probe (initialize → tools/list → tools/call → full report).
+
 ### Fixed
+- **`--mock` was not fully offline.** `stream_cli._mock_stream` stubbed three LLM entry points but
+  not `evidence_extractor.ChatOpenAI` — the fourth — so every mock run attempted real network calls
+  with the fake key (401 → two retries → heuristic fallback). All four are now stubbed; mock runs
+  no longer touch the network.
 - **Eval F5 — source matching can no longer credit a claim to the wrong source.** `find_reference_text`
   matched by exact URL, then by any source whose URL contained the reference's domain (first hit
   wins), then by the reference number's position in the source list when the URL matched nothing.
@@ -46,7 +59,7 @@ numbers are cited from `results/replay-goldset.md` and carry their coverage
   the Actions token rather than reaching for the network).
 
 ### Tests
-- 336 → 346 offline tests.
+- 336 → 377 offline tests (eval F5/F8 regressions, MCP server protocol suite).
 
 ## [0.5.0] — 2026-11-18
 
