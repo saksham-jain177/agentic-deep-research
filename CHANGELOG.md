@@ -14,6 +14,15 @@ numbers are cited from `results/replay-goldset.md` and carry their coverage
 ## [Unreleased]
 
 ### Added
+- **Pre-run cost cap (`MAX_RUN_COST_USD`)** (ROADMAP item 10): `cost_guard.py` turns the cost
+  estimator from a report into a control. When the variable is set, every live entry point — the
+  web app (`main.run_research`), the CLI (`stream_cli.main`, exit code 2), and the MCP server
+  (`deep_research`, refusal surfaces as a structured tool error) — refuses to start when the
+  **worst-case** estimate (`cost_max`, not the average) exceeds the cap, before any API call.
+  Unset (default) changes nothing; `--mock` is never gated; a malformed or negative value fails
+  **closed** (`ValueError`) rather than silently uncapping. 18 tests (`tests/test_cost_guard.py`),
+  including the real guard through the MCP frame protocol and cap boundaries derived from the
+  estimator's own output.
 - **MCP stdio server** (ROADMAP item 8): `mcp_server.py` exposes the pipeline to any AI agent over the
   Model Context Protocol — `deep_research` (mock/live, `MAX_RUN_COST_USD`-gated, optional save into
   `results/`) and `read_report` (sandboxed to `results/`, `.md` only). Zero new dependencies: the

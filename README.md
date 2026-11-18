@@ -44,6 +44,11 @@ The first is the whole product in one command: it searches, drafts section by se
 verdict per section, and writes a Markdown report to `report.md`. The second stubs the model so you
 can see the streaming and verification protocol before spending a credit.
 
+**Cost cap (opt-in):** set `MAX_RUN_COST_USD=0.50` (any non-negative number) and every live entry
+point — the web app, the CLI, and the MCP server — refuses to start when the pre-run worst-case
+estimate exceeds the cap, before a single API call is made (CLI exit code 2). Unset, nothing
+changes; `--mock` is never gated. A malformed value fails closed rather than silently uncapping.
+
 *(A recorded 60-second GIF embedded here would convert more visitors than either URL, and cannot
 rot. Tracked in [ROADMAP.md](ROADMAP.md), P1.)*
 
