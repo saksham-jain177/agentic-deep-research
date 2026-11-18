@@ -37,9 +37,10 @@ Status legend: `[ ]` open · `[x]` done · `[~]` partial.
   escaping, budget guards, push protection), and an honest list of what they do
   *not* guarantee. Heuristic sanitisation and the judge's non-security role are
   stated as limitations rather than sold as protections.
-- `[x]` **`CHANGELOG.md`** (first half of item 11) — 16 merged PRs reconstructed
-  into releases, with the offline-test count and eval coverage at each point.
-  Tags still need to be cut.
+- `[x]` **`CHANGELOG.md`** (first half of item 11) — the 20 merged PRs reconstructed
+  into releases, with the offline-test count and eval coverage at each point. The tag
+  is cut: [`v0.5.0`](https://github.com/saksham-jain177/agentic-deep-research/releases/tag/v0.5.0)
+  (2026-11-18), annotated with the reproduction command and the 4-of-40 coverage.
 - `[x]` **The README answers "why not GPT-Researcher?"** (item 23), above the
   problem statement.
 - `[x]` **`--mock` was spending the caller's credits** — it patched only the draft
@@ -102,7 +103,7 @@ what it actually costs rather than hoping it is free.
 | 8 | **Expose the agent over MCP** (a thin stdio server wrapping the research tool). | Turns "another Streamlit app" into "a capability other agents can call", and it is the interface convention the ecosystem settled on. | $0 | 5 |
 | 9 | **Cut the report to a real product surface**: one command (`python -m main "query" --deep --out report.md`), one hosted demo, one GIF in the README. | Traction follows the first 20 seconds. The library is deep; the entry point is not obvious. Hosting reality: the current Streamlit Community Cloud app answers anonymous visitors with a login redirect, so the README's Live Demo link is dead to everyone who matters — either make the app public or replace the link with a recorded 60-second GIF (free, cannot rot). | $0 | 3 |
 | 10 | **Daily cost/latency budget enforcement**: the cost dashboard measures per-run spend; add a pre-run estimate with a hard stop (`MAX_RUN_COST_USD`). | Free tiers die from surprise volume. Cost *control* is rarer than cost *reporting*. | $0 | 3 |
-| 11 | **Cut `v1.0.0`** once P0 items 1–4 are green. `v0.5.0` is tagged now (2026-11-18) with the CHANGELOG that was already written. | A versioned artifact reads as finished software; a branch tip reads as a hobby. But `1.0.0` at 10% eval coverage would be a number this repo's own pitch says it does not publish, so the tag is 0.5.0 and the gate is the benchmark page plus a CI comparison. | $0 | 1 |
+| 11 | **Cut `v1.0.0`** once P0 items 1–4 are green. `v0.5.0` is tagged *and* published (2026-11-18): [release](https://github.com/saksham-jain177/agentic-deep-research/releases/tag/v0.5.0), annotated tag on `0e3e156`, notes built from the CHANGELOG. | A versioned artifact reads as finished software; a branch tip reads as a hobby. But `1.0.0` at 10% eval coverage would be a number this repo's own pitch says it does not publish, so the tag is 0.5.0 and the gate is the benchmark page plus a CI comparison. | $0 | 1 |
 | 23 | ~~**Answer "why not GPT-Researcher / ChatGPT Deep Research?" in the README**~~ **done** — above the problem statement, and it now leads with the measurable version of the claim (published command, coverage printed next to the score). | Every reviewer asks it and the repo gave no answer. The honest one is also the selling point: the others optimise for a readable report; this one scores its own citations on a fixed gold set and refuses to publish a number it cannot reproduce. | $0 | 0 |
 
 ## P2 — only after P0/P1 are green
