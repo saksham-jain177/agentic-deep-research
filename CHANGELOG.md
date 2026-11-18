@@ -11,7 +11,17 @@ Measurement note: every "tests" figure is the offline suite
 numbers are cited from `results/replay-goldset.md` and carry their coverage
 (4 of 40 gold queries currently have replay recordings), not as a 40-query claim.
 
-## [Unreleased]
+## [0.5.0] — 2026-11-18
+
+First tagged release. Everything between `0.4.0` and this line is what PRs #18, #19, #21 and #22
+merged into `main`; the tag is annotated with the reproduction command and the current eval coverage.
+
+**Why 0.5.0 and not 1.0.0.** 4 of the 40 gold queries have replay recordings, so the headline
+numbers in the README describe a tenth of the benchmark, and the LangChain 0.1.x pin is still in
+`requirements.txt`. `1.0.0` should be the release where `eval compare` runs on every PR, the gold
+set is re-recorded at full coverage, and the benchmark page exists — that is ROADMAP P0 items 1–5.
+A version number is a claim, and this project's claim is that it does not publish numbers it cannot
+reproduce.
 
 ### Added
 - **Adversarial poisoned-page fixture** (`tests/fixtures/poisoned_wheat_page.html`,
