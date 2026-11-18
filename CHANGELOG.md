@@ -11,7 +11,21 @@ Measurement note: every "tests" figure is the offline suite
 numbers are cited from `results/replay-goldset.md` and carry their coverage
 (4 of 40 gold queries currently have replay recordings), not as a 40-query claim.
 
-## [Unreleased] — branch `fix/citation-numbering`
+## [Unreleased]
+
+### Added
+- **Adversarial poisoned-page fixture** (`tests/fixtures/poisoned_wheat_page.html`,
+  `tests/test_poisoned_page.py`, 11 tests, offline). A page carrying instruction-shaped text is
+  pushed through fetch → evidence → draft → judge with a stub model that obeys the payload. It pins
+  two properties and falsifies a third assumption: an invented citation number (`[7]`) is stripped
+  and never reaches the bibliography, and no dangling citation survives the run; but the same page,
+  ranked first by the real cross-encoder, acquires a legitimate `[1]` that the drafting layer has no
+  basis to refuse. `SECURITY.md` gained that limitation. Suite: 336 offline tests.
+
+### Landed since the last release
+- PRs #18 (offline eval harness + review fixes), #19 (eval scoring validity) and #21 (citation
+  numbering, weighted section budgets, the keyless `--mock` fix, `SECURITY.md`, `CHANGELOG.md`,
+  `ROADMAP.md`) are merged into `main`.
 
 ### Fixed
 - **Bibliography numbering now matches the inline markers.** The draft node printed
