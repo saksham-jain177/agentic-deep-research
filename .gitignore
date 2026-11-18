@@ -19,6 +19,7 @@ dist/
 # Local envs
 .venv/
 venv/
+.venv-fix/
 env/
 
 # Caches/temp
@@ -30,6 +31,7 @@ cache/
 research_data.json
 feedback.txt
 research_agent.log
+chroma_db/
 
 # Editors/OS
 .vscode/

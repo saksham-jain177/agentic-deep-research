@@ -584,6 +584,15 @@ def format_reference_for_pdf(ref_text):
     return ref_text
 
 # Function to generate PDF with proper formatting and cover page
+def _pdf_escape(text: str) -> str:
+    """Escape XML/HTML special characters for reportlab Paragraph text.
+
+    reportlab parses Paragraph text as mini-HTML, so raw web content
+    containing <, >, & or malformed tags breaks rendering or injects
+    markup. Escape first, then apply our own <b>/<br/> formatting on top.
+    """
+    return html.escape(str(text), quote=False)
+
 def generate_pdf(query, data, summary, deep_research=False):
     """Generate a PDF report with query, data, and summary in a research paper format."""
     # Parse JSON if needed
@@ -591,7 +600,7 @@ def generate_pdf(query, data, summary, deep_research=False):
     if isinstance(summary, str) and summary.strip().startswith('{'):
         try:
             parsed = json.loads(summary)
-        except:
+        except json.JSONDecodeError:
             pass
     
     buffer = io.BytesIO()
@@ -641,7 +650,7 @@ def generate_pdf(query, data, summary, deep_research=False):
     # Cover Page
     story.append(Paragraph("Deep Research AI Agent Report", styles['Title']))
     story.append(Spacer(1, 24))
-    story.append(Paragraph(f"Query: {query}", styles['Normal']))
+    story.append(Paragraph(f"Query: {_pdf_escape(query)}", styles['Normal']))
     story.append(Paragraph(f"Date: {datetime.date.today().strftime('%B %d, %Y')}", styles['Normal']))
     story.append(Paragraph(f"Author: [Your Name]", styles['Normal']))
     story.append(Spacer(1, 48))
@@ -657,22 +666,23 @@ def generate_pdf(query, data, summary, deep_research=False):
 
     # Add research data summary
     for item in data:
-        story.append(Paragraph(f"• {item['title']}", styles['Heading3']))
-        story.append(Paragraph(item['content'], styles['BodyText']))
+        story.append(Paragraph(f"• {_pdf_escape(item['title'])}", styles['Heading3']))
+        story.append(Paragraph(_pdf_escape(item['content']), styles['BodyText']))
         story.append(Spacer(1, 12))
 
     # Process content based on format
     if parsed:
         # Handle JSON format
         for section in parsed.get("sections", []):
-            title = section.get("title", "Section")
-            content = section.get("content", "")
+            title = _pdf_escape(section.get("title", "Section"))
+            content = _pdf_escape(section.get("content", ""))
             
             # Add section title
             story.append(Paragraph(title, styles['Heading2']))
             story.append(Spacer(1, 12))
             
-            # Clean and format content for PDF
+            # Convert **bold** to <b> AFTER escaping so the only markup
+            # reportlab sees is what we add ourselves.
             # Handle both ** and **** for bold (limit to reasonable length to avoid entire paragraphs)
             content = re.sub(r'\*{4}([^*]{1,100}?)\*{4}', r'<b>\1</b>', content)  # Convert **** to bold
             content = re.sub(r'\*\*([^*]{1,100}?)\*\*', r'<b>\1</b>', content)  # Convert ** to bold
@@ -710,7 +720,7 @@ def generate_pdf(query, data, summary, deep_research=False):
             story.append(Paragraph("References", styles['Heading2']))
             story.append(Spacer(1, 12))
             for i, ref in enumerate(refs, 1):
-                ref_para = Paragraph(f"{i}. {ref}", styles['Reference'])
+                ref_para = Paragraph(f"{i}. {_pdf_escape(ref)}", styles['Reference'])
                 story.append(ref_para)
     else:
         # Fallback to old text processing
@@ -723,7 +733,7 @@ def generate_pdf(query, data, summary, deep_research=False):
                 current_heading = section.strip("**").rstrip(":")
                 if current_heading == "References":
                     continue
-                story.append(Paragraph(current_heading, styles['Heading2']))
+                story.append(Paragraph(_pdf_escape(current_heading), styles['Heading2']))
                 story.append(Spacer(1, 12))
             else:
                 if current_heading == "References":
@@ -734,10 +744,10 @@ def generate_pdf(query, data, summary, deep_research=False):
                 elif current_heading:
                     if "|" in section or "-|-" in section:
                         # Table in fallback path
-                        story.append(Paragraph(section.strip().replace("\n", "<br/>"), styles['Monospace']))
+                        story.append(Paragraph(_pdf_escape(section).strip().replace("\n", "<br/>"), styles['Monospace']))
                         story.append(Spacer(1, 12))
                     else:
-                        formatted_text = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", section)
+                        formatted_text = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", _pdf_escape(section))
                         story.append(Paragraph(formatted_text, styles['BodyText']))
                         story.append(Spacer(1, 12))
 
@@ -748,7 +758,7 @@ def generate_pdf(query, data, summary, deep_research=False):
             for i, ref in enumerate(references, 1):
                 formatted_ref = format_reference_for_pdf(ref)
                 if formatted_ref:
-                    ref_para = Paragraph(f"{i}. {formatted_ref}", styles['Reference'])
+                    ref_para = Paragraph(f"{i}. {_pdf_escape(formatted_ref)}", styles['Reference'])
                     story.append(ref_para)
 
     doc.build(story, onFirstPage=on_page, onLaterPages=on_page)
@@ -778,7 +788,7 @@ def generate_docx(query, data, summary, deep_research=False):
     if isinstance(summary, str) and summary.strip().startswith('{'):
         try:
             parsed = json.loads(summary)
-        except:
+        except json.JSONDecodeError:
             pass
     
     doc = Document()
@@ -974,17 +984,7 @@ if vector_store_available:
             st.sidebar.error(f"Vector store error: {str(e)[:100]}")
     else:
         os.environ["ENABLE_VECTOR_STORE"] = "false"
-def _fix_readability(text: str) -> str:
-    if not isinstance(text, str):
-        return ""
-    t = text.replace("\r\n", "\n").replace("\r", "\n")
-    # Ensure a space after punctuation if followed by a letter (keep newlines)
-    t = re.sub(r"([\.,;:])(?![\s\n])(?!$)(?=[A-Za-z])", r"\1 ", t)
-    # Insert a space between ALL-CAPS token and following lowercase (avoid newlines)
-    t = re.sub(r"\b([A-Z]{2,})([a-z])", r"\1 \2", t)
-    # Insert a space between a closing alpha and opening parenthesis if missing
-    t = re.sub(r"([A-Za-z])\(", r"\1 (", t)
-    return t
+
 
 # Light cleanup for raw source content coming from the web
 def _clean_source_text(text: str) -> str:
@@ -1188,6 +1188,35 @@ selected_model = st.sidebar.selectbox(
 os.environ["OPENROUTER_MODEL"] = selected_model
 
 # Quick micro-benchmark for latency/throughput
+def _bench_accumulate_chunk(chunk: dict, completion_chars: int, usage_tokens):
+    """Fold one SSE JSON chunk into the running (completion_chars, usage_tokens) tally."""
+    if chunk.get("usage"):
+        usage_tokens = chunk["usage"].get("completion_tokens")
+    for choice in chunk.get("choices") or []:
+        completion_chars += len(choice.get("delta", {}).get("content") or "")
+    return completion_chars, usage_tokens
+
+def _bench_summary(latency_s: float, completion_chars: int, usage_tokens, gen_time: float):
+    """Build a benchmark result from whatever the provider actually reported.
+
+    Returns None when the stream contained neither a usage block nor any
+    content delta - some providers emit only keep-alives in that case, and
+    reporting "1 token" would fabricate a throughput number rather than say
+    we have no data.
+    """
+    if usage_tokens:
+        tokens = usage_tokens
+    elif completion_chars:
+        tokens = max(1, round(completion_chars / 4))
+    else:
+        return None
+    return {
+        "latency_s": round(latency_s, 3),
+        "throughput_tps": round(tokens / max(gen_time, 1e-6), 1),
+        "tokens": tokens,
+    }
+
+
 @st.cache_data(ttl=900, show_spinner=False)
 def benchmark_model(model_id: str, max_new_tokens: int = 64) -> dict | None:
     api_key = os.getenv("OPENROUTER_API_KEY")
@@ -1205,23 +1234,38 @@ def benchmark_model(model_id: str, max_new_tokens: int = 64) -> dict | None:
         "stream": True,
         "messages": [{"role": "user", "content": "Write a short sentence (~64 tokens)."}],
         "max_tokens": max_new_tokens,
-        "temperature": 0.2
+        "temperature": 0.2,
+        # Ask OpenAI-compatible providers for exact completion token usage;
+        # providers that omit it fall back to the chars/4 estimate below.
+        "stream_options": {"include_usage": True}
     }
     t0 = time.perf_counter()
     try:
         with requests.post(url, headers=headers, json=body, stream=True, timeout=60) as r:
             r.raise_for_status()
             ttfb = None
-            token_chunks = 0
+            completion_chars = 0
+            usage_tokens = None
             for line in r.iter_lines(decode_unicode=True):
                 if not line:
                     continue
                 if not ttfb:
                     ttfb = time.perf_counter() - t0
-                token_chunks += 1
+                if not line.startswith("data:"):
+                    continue
+                payload = line[5:].strip()
+                if not payload or payload == "[DONE]":
+                    continue
+                try:
+                    chunk = json.loads(payload)
+                except json.JSONDecodeError:
+                    continue
+                completion_chars, usage_tokens = _bench_accumulate_chunk(chunk, completion_chars, usage_tokens)
         total = time.perf_counter() - t0
-        throughput = token_chunks / max(total - (ttfb or 0), 1e-6)
-        return {"latency_s": round(ttfb or total, 3), "throughput_tps": round(throughput, 1), "chunks": token_chunks}
+        gen_time = max(total - (ttfb or 0), 1e-6)
+        # Exact provider usage when offered, else ~4 chars/token; None when the
+        # stream carried neither.
+        return _bench_summary(ttfb or total, completion_chars, usage_tokens, gen_time)
     except Exception:
         return None
 
@@ -1513,7 +1557,12 @@ if st.session_state.research_data and st.session_state.response and not st.sessi
                 st.markdown(f"{i}. {ref}")
     
     # Show word count info
-    word_count = len(st.session_state.response.split())
+    # Count the words actually rendered (sections + references), not the raw
+    # JSON payload, which inflates the count with keys and escaped markup.
+    summary_text = " ".join(str(section.get("content", "")) for section in unique_sections)
+    if refs:
+        summary_text += " " + " ".join(str(r) for r in refs)
+    word_count = len(summary_text.split())
     page_estimate = word_count // 400 + 1
     st.info(f"Summary contains {word_count} words, estimated at {page_estimate} pages.")
 
@@ -1669,58 +1718,66 @@ if st.session_state.research_data and st.session_state.response:
         )
 
 # Feedback form in sidebar
-st.sidebar.header("Feedback")
-feedback = st.sidebar.text_area("How can we improve?", placeholder="Share your thoughts...")
-if st.sidebar.button("Submit Feedback"):
-    if not feedback or len(feedback.strip()) == 0:
-        st.sidebar.error("Please enter your feedback.")
-    else:
-        # Send feedback via server-side email
-        try:
-            import smtplib
-            from email.mime.text import MIMEText
-            from email.mime.multipart import MIMEMultipart
-            
-            # Get bot email credentials (sender and receiver are same)
-            bot_email = os.getenv("FEEDBACK_BOT_EMAIL", "")
-            bot_password = os.getenv("FEEDBACK_BOT_PASSWORD", "")
-            
-            if bot_email and bot_password:
-                # Create message - bot sends to itself
-                message = MIMEMultipart("alternative")
-                message["Subject"] = f"Deep Research AI - User Feedback [{datetime.datetime.now().strftime('%Y-%m-%d')}]"
-                message["From"] = bot_email
-                message["To"] = bot_email
+# Opt-in: the form emails feedback via Gmail SMTP, so it is only rendered when
+# FEEDBACK_ENABLED=true. Default deployments expose no mail relay at all.
+FEEDBACK_ENABLED = os.getenv("FEEDBACK_ENABLED", "false").lower() == "true"
+if FEEDBACK_ENABLED:
+    st.sidebar.header("Feedback")
+    feedback = st.sidebar.text_area("How can we improve?", placeholder="Share your thoughts...", max_chars=2000)
+    if st.sidebar.button("Submit Feedback"):
+        if not feedback or len(feedback.strip()) == 0:
+            st.sidebar.error("Please enter your feedback.")
+        elif time.time() - st.session_state.get("_last_feedback_ts", 0) < 3600:
+            # Rate limit: at most one email per hour per session
+            st.sidebar.warning("Feedback already sent recently. Please try again later.")
+        else:
+            # Send feedback via server-side email
+            try:
+                import smtplib
+                from email.mime.text import MIMEText
+                from email.mime.multipart import MIMEMultipart
                 
-                # Create the email body
-                text = f"""
-                New feedback received from Deep Research AI Agent
+                # Get bot email credentials (sender and receiver are same)
+                bot_email = os.getenv("FEEDBACK_BOT_EMAIL", "")
+                bot_password = os.getenv("FEEDBACK_BOT_PASSWORD", "")
                 
-                ========================================
-                FEEDBACK:
-                ========================================
-                {feedback}
-                
-                ========================================
-                Timestamp: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-                ========================================
-                """
-                
-                part = MIMEText(text, "plain")
-                message.attach(part)
-                
-                # Send email via Gmail SMTP (bot to itself)
-                with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-                    server.login(bot_email, bot_password)
-                    server.sendmail(bot_email, bot_email, message.as_string())
-                
-                st.sidebar.success("Thanks! Your feedback has been sent! 🙏")
-                
-            else:
-                # No feedback system configured
-                st.sidebar.warning("Feedback system not available at the moment.")
+                if bot_email and bot_password:
+                    # Create message - bot sends to itself
+                    message = MIMEMultipart("alternative")
+                    message["Subject"] = f"Deep Research AI - User Feedback [{datetime.datetime.now().strftime('%Y-%m-%d')}]"
+                    message["From"] = bot_email
+                    message["To"] = bot_email
                     
-        except smtplib.SMTPAuthenticationError:
-            st.sidebar.error("Feedback system authentication error. Please contact admin.")
-        except Exception as e:
-            st.sidebar.error(f"Unable to send feedback: {type(e).__name__}. Please try again later.")
+                    # Create the email body (hard cap on length, defense in depth)
+                    text = f"""
+                    New feedback received from Deep Research AI Agent
+                    
+                    ========================================
+                    FEEDBACK:
+                    ========================================
+                    {feedback[:2000]}
+                    
+                    ========================================
+                    Timestamp: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+                    ========================================
+                    """
+                    
+                    part = MIMEText(text, "plain")
+                    message.attach(part)
+                    
+                    # Send email via Gmail SMTP (bot to itself)
+                    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+                        server.login(bot_email, bot_password)
+                        server.sendmail(bot_email, bot_email, message.as_string())
+                    
+                    st.session_state["_last_feedback_ts"] = time.time()
+                    st.sidebar.success("Thanks! Your feedback has been sent! 🙏")
+                    
+                else:
+                    # No feedback system configured
+                    st.sidebar.warning("Feedback system not available at the moment.")
+                    
+            except smtplib.SMTPAuthenticationError:
+                st.sidebar.error("Feedback system authentication error. Please contact admin.")
+            except Exception as e:
+                st.sidebar.error(f"Unable to send feedback: {type(e).__name__}. Please try again later.")

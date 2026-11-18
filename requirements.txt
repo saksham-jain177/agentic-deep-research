@@ -1,23 +1,24 @@
 # Core
 requests
-beautifulsoup4
 python-dotenv
 streamlit>=1.40
 joblib
 reportlab
 python-docx
-tenacity
 tavily-python
 
 # LangChain ecosystem
 langchain>=0.1.0,<0.2.0
-langchain-community>=0.0.30
 langchain-openai>=0.1.0
 langgraph>=0.0.30
+# Transitive via langchain 0.1.x, pinned explicitly so environments that also
+# see a newer global langsmith (e.g. --system-site-packages venvs) stay coherent
+langsmith>=0.1.17,<0.2
 
 # Vector + embeddings
 chromadb>=0.4.0
 sentence-transformers>=2.2.0
+numpy
 
 # Compatibility
 pydantic>=1.10.0

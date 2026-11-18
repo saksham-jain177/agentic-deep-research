@@ -1,0 +1,401 @@
+{
+  "version": 1,
+  "description": "40-query stratified gold set for the Deep Research Agent. T1 = verifiable fact, T2 = synthesis across sources, T3 = genuinely contested, T4 = unanswerable (abstention test). Claims are the minimum facts a correct report must contain; aliases cover common phrasings.",
+  "queries": [
+    {
+      "id": "T1-01",
+      "tier": "T1",
+      "query": "At what temperature does water boil at sea level?",
+      "expected_claims": [
+        { "text": "Water boils at 100 degrees Celsius at sea level", "aliases": ["100 °C", "212 degrees Fahrenheit"] }
+      ],
+      "acceptable_domains": ["britannica.com", "noaa.gov", "usgs.gov"]
+    },
+    {
+      "id": "T1-02",
+      "tier": "T1",
+      "query": "Who wrote the novel Beloved and in what year was it published?",
+      "expected_claims": [
+        { "text": "Toni Morrison wrote Beloved", "aliases": ["Beloved was written by Toni Morrison"] },
+        { "text": "Beloved was published in 1987" }
+      ],
+      "acceptable_domains": ["britannica.com", "wikipedia.org", "nobelprize.org"]
+    },
+    {
+      "id": "T1-03",
+      "tier": "T1",
+      "query": "What is the capital city of Australia?",
+      "expected_claims": [
+        { "text": "Canberra is the capital of Australia", "aliases": ["The capital of Australia is Canberra"] }
+      ],
+      "acceptable_domains": ["britannica.com", "gov.au"]
+    },
+    {
+      "id": "T1-04",
+      "tier": "T1",
+      "query": "How many chambers does the human heart have?",
+      "expected_claims": [
+        { "text": "The human heart has four chambers", "aliases": ["four-chambered heart"] }
+      ],
+      "acceptable_domains": ["nih.gov", "britannica.com", "heart.org"]
+    },
+    {
+      "id": "T1-05",
+      "tier": "T1",
+      "query": "In what year did the Berlin Wall fall?",
+      "expected_claims": [
+        { "text": "The Berlin Wall fell in 1989" }
+      ],
+      "acceptable_domains": ["britannica.com", "history.com", "bbc.co.uk"]
+    },
+    {
+      "id": "T1-06",
+      "tier": "T1",
+      "query": "What is the speed of light in a vacuum?",
+      "expected_claims": [
+        { "text": "The speed of light is 299,792,458 metres per second", "aliases": ["approximately 300,000 kilometres per second", "186,282 miles per second"] }
+      ],
+      "acceptable_domains": ["nist.gov", "britannica.com", "physics.nist.gov"]
+    },
+    {
+      "id": "T1-07",
+      "tier": "T1",
+      "query": "Which chemical element has atomic number 26?",
+      "expected_claims": [
+        { "text": "Iron has atomic number 26", "aliases": ["Element 26 is iron"] }
+      ],
+      "acceptable_domains": ["rsc.org", "britannica.com", "pubchem.ncbi.nlm.nih.gov"]
+    },
+    {
+      "id": "T1-08",
+      "tier": "T1",
+      "query": "What is the largest planet in the solar system?",
+      "expected_claims": [
+        { "text": "Jupiter is the largest planet in the solar system" }
+      ],
+      "acceptable_domains": ["nasa.gov", "britannica.com"]
+    },
+    {
+      "id": "T1-09",
+      "tier": "T1",
+      "query": "Who painted the Mona Lisa?",
+      "expected_claims": [
+        { "text": "Leonardo da Vinci painted the Mona Lisa" }
+      ],
+      "acceptable_domains": ["louvre.fr", "britannica.com", "wikipedia.org"]
+    },
+    {
+      "id": "T1-10",
+      "tier": "T1",
+      "query": "What is the official currency of Japan?",
+      "expected_claims": [
+        { "text": "The Japanese yen is the official currency of Japan" }
+      ],
+      "acceptable_domains": ["boj.or.jp", "britannica.com"]
+    },
+    {
+      "id": "T1-11",
+      "tier": "T1",
+      "query": "Who invented the World Wide Web and when?",
+      "expected_claims": [
+        { "text": "Tim Berners-Lee invented the World Wide Web" },
+        { "text": "Berners-Lee proposed the Web at CERN in 1989" }
+      ],
+      "acceptable_domains": ["cern.ch", "w3.org", "britannica.com"]
+    },
+    {
+      "id": "T1-12",
+      "tier": "T1",
+      "query": "What does HTTP status code 404 mean?",
+      "expected_claims": [
+        { "text": "404 means the requested resource was not found", "aliases": ["Not Found"] }
+      ],
+      "acceptable_domains": ["rfc-editor.org", "developer.mozilla.org", "datatracker.ietf.org"]
+    },
+
+    {
+      "id": "T2-01",
+      "tier": "T2",
+      "query": "What were the main causes of the 2008 global financial crisis?",
+      "expected_claims": [
+        { "text": "Subprime mortgage lending was a central cause" },
+        { "text": "Securitisation of mortgages into mortgage-backed securities and CDOs spread the risk" },
+        { "text": "Excessive leverage in the financial system amplified losses" },
+        { "text": "The collapse of Lehman Brothers in September 2008 marked a turning point" }
+      ],
+      "acceptable_domains": ["federalreserve.gov", "imf.org", "britannica.com", "sec.gov"]
+    },
+    {
+      "id": "T2-02",
+      "tier": "T2",
+      "query": "How does the self-attention mechanism in a transformer model work?",
+      "expected_claims": [
+        { "text": "Attention uses query, key and value projections" },
+        { "text": "Scores are computed as a scaled dot product of queries and keys" },
+        { "text": "A softmax turns scores into weights used to combine values" }
+      ],
+      "acceptable_domains": ["arxiv.org", "papers.nips.cc", "jalammar.github.io"]
+    },
+    {
+      "id": "T2-03",
+      "tier": "T2",
+      "query": "What are the main drivers of global biodiversity loss?",
+      "expected_claims": [
+        { "text": "Land and sea use change, mainly habitat destruction, is the leading driver" },
+        { "text": "Overexploitation of species is a major driver" },
+        { "text": "Climate change is an increasing driver of biodiversity loss" },
+        { "text": "Pollution and invasive alien species contribute significantly" }
+      ],
+      "acceptable_domains": ["ipbes.net", "iucn.org", "un.org"]
+    },
+    {
+      "id": "T2-04",
+      "tier": "T2",
+      "query": "How do mRNA vaccines work?",
+      "expected_claims": [
+        { "text": "mRNA vaccines deliver messenger RNA in lipid nanoparticles" },
+        { "text": "The mRNA instructs cells to produce a viral protein such as the spike protein" },
+        { "text": "The immune system mounts a response against that protein" },
+        { "text": "The mRNA does not alter the recipient's DNA" }
+      ],
+      "acceptable_domains": ["cdc.gov", "nih.gov", "who.int", "nature.com"]
+    },
+    {
+      "id": "T2-05",
+      "tier": "T2",
+      "query": "What are the key provisions of the Paris Agreement?",
+      "expected_claims": [
+        { "text": "The agreement aims to hold warming well below 2 degrees Celsius and pursue 1.5 degrees" },
+        { "text": "Countries submit nationally determined contributions" },
+        { "text": "The agreement was adopted in 2015" }
+      ],
+      "acceptable_domains": ["unfccc.int", "un.org", "ipcc.ch"]
+    },
+    {
+      "id": "T2-06",
+      "tier": "T2",
+      "query": "Why do lithium-ion batteries degrade over time?",
+      "expected_claims": [
+        { "text": "Growth of the solid electrolyte interphase consumes lithium" },
+        { "text": "Loss of cyclable lithium inventory causes capacity fade" },
+        { "text": "Both calendar ageing and cycle ageing contribute" }
+      ],
+      "acceptable_domains": ["nature.com", "sciencedirect.com", "osti.gov", "energy.gov"]
+    },
+    {
+      "id": "T2-07",
+      "tier": "T2",
+      "query": "What is the evidence that recent climate change is caused by human activity?",
+      "expected_claims": [
+        { "text": "Atmospheric CO2 concentrations have risen sharply since industrialisation" },
+        { "text": "The isotopic signature of atmospheric carbon points to fossil fuel combustion" },
+        { "text": "Observed warming cannot be reproduced by natural forcings alone" }
+      ],
+      "acceptable_domains": ["ipcc.ch", "nasa.gov", "noaa.gov"]
+    },
+    {
+      "id": "T2-08",
+      "tier": "T2",
+      "query": "How do central banks use interest rates to control inflation?",
+      "expected_claims": [
+        { "text": "Raising policy rates raises borrowing costs and reduces demand" },
+        { "text": "Monetary policy affects inflation with a lag of several quarters" },
+        { "text": "Central banks target inflation expectations as well as current inflation" }
+      ],
+      "acceptable_domains": ["ecb.europa.eu", "federalreserve.gov", "bankofengland.co.uk", "imf.org"]
+    },
+    {
+      "id": "T2-09",
+      "tier": "T2",
+      "query": "What are the main technical bottlenecks in serving large language models at scale?",
+      "expected_claims": [
+        { "text": "KV cache memory grows with context length and limits batch size" },
+        { "text": "Inference is often memory-bandwidth bound rather than compute bound" },
+        { "text": "Batching and paged attention improve throughput" },
+        { "text": "Quantisation reduces memory footprint at some accuracy cost" }
+      ],
+      "acceptable_domains": ["arxiv.org", "vllm.ai", "huggingface.co", "nvidia.com"]
+    },
+    {
+      "id": "T2-10",
+      "tier": "T2",
+      "query": "How does CRISPR-Cas9 gene editing work?",
+      "expected_claims": [
+        { "text": "A guide RNA directs Cas9 to a complementary DNA sequence" },
+        { "text": "Cas9 creates a double-strand break" },
+        { "text": "The break is repaired by cellular repair pathways such as non-homologous end joining" }
+      ],
+      "acceptable_domains": ["broadinstitute.org", "nih.gov", "nature.com", "nobelprize.org"]
+    },
+    {
+      "id": "T2-11",
+      "tier": "T2",
+      "query": "What factors led to the dissolution of the Soviet Union in 1991?",
+      "expected_claims": [
+        { "text": "Economic stagnation and reform failures weakened the union" },
+        { "text": "Nationalist movements in the republics pushed for independence" },
+        { "text": "Gorbachev's glasnost and perestroika reforms loosened central control" },
+        { "text": "The union dissolved in December 1991" }
+      ],
+      "acceptable_domains": ["britannica.com", "loc.gov", "wikipedia.org", "bbc.co.uk"]
+    },
+    {
+      "id": "T2-12",
+      "tier": "T2",
+      "query": "What are the documented health effects of chronic sleep deprivation?",
+      "expected_claims": [
+        { "text": "Sleep deprivation impairs cognitive performance and attention" },
+        { "text": "Chronic short sleep is associated with cardiovascular disease risk" },
+        { "text": "Sleep loss affects immune function" },
+        { "text": "Sleep restriction is associated with metabolic and weight changes" }
+      ],
+      "acceptable_domains": ["nih.gov", "cdc.gov", "sleepfoundation.org", "nature.com"]
+    },
+
+    {
+      "id": "T3-01",
+      "tier": "T3",
+      "query": "Does moderate alcohol consumption improve cardiovascular health?",
+      "expected_claims": [
+        { "text": "Observational studies have reported a J-shaped association" },
+        { "text": "Recent analyses argue that confounding and abstainer bias explain much of the apparent benefit" },
+        { "text": "No major health body now recommends drinking for health reasons" }
+      ],
+      "acceptable_domains": ["who.int", "nih.gov", "thelancet.com", "bmj.com"]
+    },
+    {
+      "id": "T3-02",
+      "tier": "T3",
+      "query": "Was the end-Cretaceous mass extinction caused mainly by the Chicxulub impact or by Deccan Traps volcanism?",
+      "expected_claims": [
+        { "text": "The Chicxulub impact is widely regarded as the dominant trigger" },
+        { "text": "Deccan Traps volcanism is argued to have contributed or preconditioned the ecosystem" },
+        { "text": "The debate remains active in the literature" }
+      ],
+      "acceptable_domains": ["science.org", "nature.com", "pnas.org", "britannica.com"]
+    },
+    {
+      "id": "T3-03",
+      "tier": "T3",
+      "query": "Is the paleo diet superior to other diets for metabolic health?",
+      "expected_claims": [
+        { "text": "Short-term trials show some metabolic improvements" },
+        { "text": "Long-term adherence and evidence are limited" },
+        { "text": "Trials are small and heterogeneous" }
+      ],
+      "acceptable_domains": ["nih.gov", "nature.com", "cochranelibrary.com"]
+    },
+    {
+      "id": "T3-04",
+      "tier": "T3",
+      "query": "Does remote work increase or decrease employee productivity?",
+      "expected_claims": [
+        { "text": "Evidence is mixed and highly context dependent" },
+        { "text": "Some studies find productivity gains, others find losses" },
+        { "text": "Effects differ by task type and by hybrid versus fully remote arrangements" }
+      ],
+      "acceptable_domains": ["nber.org", "nature.com", "mckinsey.com", "stanford.edu"]
+    },
+    {
+      "id": "T3-05",
+      "tier": "T3",
+      "query": "Is dark matter best explained by particle dark matter or by modified gravity?",
+      "expected_claims": [
+        { "text": "Particle dark matter is the mainstream explanation" },
+        { "text": "Modified gravity models explain some galactic observations without dark matter" },
+        { "text": "No direct detection of dark matter particles has been confirmed" }
+      ],
+      "acceptable_domains": ["nasa.gov", "arxiv.org", "cern.ch", "nature.com"]
+    },
+    {
+      "id": "T3-06",
+      "tier": "T3",
+      "query": "Does bilingual education improve cognitive outcomes for children?",
+      "expected_claims": [
+        { "text": "Some studies report executive function advantages" },
+        { "text": "Other studies find the advantage disappears after controlling for confounds" },
+        { "text": "The literature is contested" }
+      ],
+      "acceptable_domains": ["nih.gov", "nature.com", "cambridge.org"]
+    },
+    {
+      "id": "T3-07",
+      "tier": "T3",
+      "query": "Is nuclear power necessary for deep decarbonisation of electricity systems?",
+      "expected_claims": [
+        { "text": "Some analyses find nuclear reduces system cost and improves reliability" },
+        { "text": "Others find renewables plus storage can meet the same targets" },
+        { "text": "Conclusions depend on assumptions about cost, land use and storage" }
+      ],
+      "acceptable_domains": ["iea.org", "ipcc.ch", "nature.com", "mit.edu"]
+    },
+    {
+      "id": "T3-08",
+      "tier": "T3",
+      "query": "Does intermittent fasting produce better weight loss than continuous calorie restriction?",
+      "expected_claims": [
+        { "text": "Trials generally find similar weight loss when calories are matched" },
+        { "text": "Adherence may differ between approaches" },
+        { "text": "Evidence for superior metabolic benefit is limited" }
+      ],
+      "acceptable_domains": ["nih.gov", "jamanetwork.com", "nejm.org", "bmj.com"]
+    },
+
+    {
+      "id": "T4-01",
+      "tier": "T4",
+      "query": "What will the S&P 500 index close at on 31 December 2031?",
+      "expected_claims": [],
+      "must_abstain": true
+    },
+    {
+      "id": "T4-02",
+      "tier": "T4",
+      "query": "Which nation will win the 2035 FIFA World Cup?",
+      "expected_claims": [],
+      "must_abstain": true
+    },
+    {
+      "id": "T4-03",
+      "tier": "T4",
+      "query": "How many undiscovered species live in the Mariana Trench?",
+      "expected_claims": [],
+      "must_abstain": true
+    },
+    {
+      "id": "T4-04",
+      "tier": "T4",
+      "query": "What was the exact population of London on 1 January 1450?",
+      "expected_claims": [],
+      "must_abstain": true
+    },
+    {
+      "id": "T4-05",
+      "tier": "T4",
+      "query": "What did Julius Caesar say in his final private conversation?",
+      "expected_claims": [],
+      "must_abstain": true
+    },
+    {
+      "id": "T4-06",
+      "tier": "T4",
+      "query": "What is the exact number of grains of sand on Earth?",
+      "expected_claims": [],
+      "must_abstain": true
+    },
+    {
+      "id": "T4-07",
+      "tier": "T4",
+      "query": "What will Nvidia's market capitalisation be at the end of 2030?",
+      "expected_claims": [],
+      "must_abstain": true
+    },
+    {
+      "id": "T4-08",
+      "tier": "T4",
+      "query": "How many uncontacted tribes will exist in 2050?",
+      "expected_claims": [],
+      "must_abstain": true
+    }
+  ]
+}
