@@ -11,6 +11,26 @@ Measurement note: every "tests" figure is the offline suite
 numbers are cited from `results/replay-goldset.md` and carry their coverage
 (4 of 40 gold queries currently have replay recordings), not as a 40-query claim.
 
+## [Unreleased]
+
+### Added
+- **Replay eval as a PR comment** (ROADMAP P0 item 5, the gate that was standing between this
+  project and "every PR is a documented experiment"). `.github/workflows/eval-comment.yml` checks
+  out `main` and the PR head, runs `python -m eval run --mode replay` in both, and
+  `scripts/eval_ci_comment.py` posts — or edits, on later pushes — one comment carrying the delta
+  table. Three properties the table alone would not have: replay is deterministic (fixed fixtures,
+  heuristic judge), so there is **no tolerance band** and a non-zero adverse delta is named as the
+  code's doing; a branch that changes *which* queries are scored is labelled **not comparable as an
+  ablation** instead of printing a delta that mixes two variables; and rows the harness cannot
+  measure are labelled as such — latency and cost come from the recordings, so they move only when
+  fixtures are re-recorded, never because this PR's pipeline got slower. It is a comment, not a
+  check, so a deliberate trade-off still merges with the number visible.
+  `tests/test_eval_ci_comment.py` (10 tests, offline, and the posting path refuses to run without
+  the Actions token rather than reaching for the network).
+
+### Tests
+- 336 → 346 offline tests.
+
 ## [0.5.0] — 2026-11-18
 
 First tagged release. Everything between `0.4.0` and this line is what PRs #18, #19, #21 and #22
