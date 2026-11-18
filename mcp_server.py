@@ -6,7 +6,7 @@ agent speaking the protocol) can run a research job and read the report back.
 
 Zero new dependencies: the stdio transport is newline-delimited JSON-RPC 2.0,
 implemented below in ~150 lines. Adding the official SDK would pin a package
-against the langchain 0.1 line in requirements.txt for no functional gain.
+against the deliberately lean requirements.txt for no functional gain.
 
 Protocol discipline (the part that actually matters): MCP frames are JSON
 lines on stdout. Anything the pipeline, LangChain, or a stray print writes to

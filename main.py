@@ -1,4 +1,4 @@
-from langgraph.graph import StateGraph
+from langgraph.graph import StateGraph, START, END
 from research_agent import research_web
 from draft_agent import draft_tool
 from joblib import Memory
@@ -154,12 +154,11 @@ workflow = StateGraph(dict)
 workflow.add_node("research", research_node)
 workflow.add_node("draft", draft_node)
 
-# Define edges
+# Define edges (START/END is the langgraph >= 0.2 idiom; set_entry_point /
+# set_finish_point are deprecated aliases for exactly these edges)
 workflow.add_edge("research", "draft")
-
-# Set entry and finish points
-workflow.set_entry_point("research")
-workflow.set_finish_point("draft")
+workflow.add_edge(START, "research")
+workflow.add_edge("draft", END)
 
 # Compile the workflow
 app = workflow.compile()

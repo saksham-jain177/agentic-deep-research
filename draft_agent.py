@@ -3,8 +3,8 @@ import json
 import time
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from langchain.prompts import PromptTemplate
-from langchain.tools import StructuredTool
+from langchain_core.prompts import PromptTemplate
+from langchain_core.tools import StructuredTool
 import requests
 from openai import APIConnectionError, RateLimitError
 import logging
@@ -14,12 +14,10 @@ from typing import List, Dict, Any, Optional
 
 import evidence_extractor
 import cost_estimator
-# LangChain 0.1.x StructuredTool requires a pydantic.v1 schema; use it even
-# when pydantic v2 is installed (v2 installs expose the v1 compat layer).
-try:
-    from pydantic.v1 import BaseModel, Field
-except ImportError:  # pydantic < 2 installed
-    from pydantic import BaseModel, Field
+# Native pydantic v2: langchain-core >= 0.3 accepts v2 models as tool
+# schemas, so the pydantic.v1 compatibility shim langchain 0.1 required is
+# gone (requirements.txt pins pydantic>=2).
+from pydantic import BaseModel, Field
 from urllib.parse import urlparse
 from datetime import date, datetime
 

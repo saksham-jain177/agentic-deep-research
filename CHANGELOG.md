@@ -13,6 +13,16 @@ numbers are cited from `results/replay-goldset.md` and carry their coverage
 
 ## [Unreleased]
 
+### Changed
+- **LangChain 0.1.x → 0.3.x with native Pydantic v2** (ROADMAP item 6, KNOWN_ISSUES item 9):
+  `langchain>=0.3,<0.4`, `langchain-core>=0.3,<0.4` (now pinned explicitly — `draft_agent` imports it
+  directly), `langchain-openai>=0.2,<0.4`, `langgraph>=0.2,<0.4`, `pydantic>=2`. The
+  `pydantic.v1` compatibility shim in `draft_agent.py` is deleted — langchain-core ≥ 0.3 accepts v2
+  models as tool schemas natively — and `main.py`'s graph wiring moves from the deprecated
+  `set_entry_point`/`set_finish_point` to the equivalent `START`/`END` edges. The migration surface
+  was 5 files; only `draft_agent.py` needed code changes. Suite: 395 passed offline on the new
+  stack (langchain 0.3.30, langchain-core 0.3.86, langgraph 0.3.34, pydantic 2.14.3).
+
 ### Added
 - **Pre-run cost cap (`MAX_RUN_COST_USD`)** (ROADMAP item 10): `cost_guard.py` turns the cost
   estimator from a report into a control. When the variable is set, every live entry point — the

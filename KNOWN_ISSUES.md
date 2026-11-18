@@ -35,10 +35,12 @@ Items marked ✅ are resolved; ❌ items remain open.
 10. ~~**Model-list fetch blocked first paint silently.**~~ Wrapped in a
     spinner; still cached (ttl=600).
 
+11. ~~**LangChain 0.1.x is EOL-pinned** (`>=0.1.0,<0.2.0`).~~ **Fixed** —
+    upgraded to `langchain>=0.3,<0.4` / `langchain-core>=0.3,<0.4` /
+    `langchain-openai>=0.2,<0.4` / `langgraph>=0.2,<0.4` with native
+    Pydantic v2 (`pydantic>=2`); the `pydantic.v1` shim in `draft_agent.py`
+    is deleted and `main.py`'s graph wiring uses the `START`/`END` idiom.
+    Suite 395 green offline on the new stack.
+
 ## Open ❌
 
-9. **LangChain 0.1.x is EOL-pinned** (`>=0.1.0,<0.2.0`). The `pydantic.v1`
-   shim in `draft_agent.py` is a deliberate compatibility fix, not a
-   long-term home. Upgrading to LangChain 0.3.x + Pydantic v2 native would
-   remove the shim, but touches `research_agent.py`, `draft_agent.py`, and
-   `main.py` — schedule as its own change with tests.
