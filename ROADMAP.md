@@ -62,6 +62,14 @@ Status legend: `[ ]` open · `[x]` done · `[~]` partial.
   demand to be cited as `[1]` a citation of a source that genuinely carries the quote, and the
   drafting layer has nothing to object to. `SECURITY.md` now records that limitation instead of
   implying the sanitiser covers it. Suite: 336 offline tests.
+- `[x]` **Replay eval on every PR** (P0 item 5) — `.github/workflows/eval-comment.yml` checks out
+  `main` and the PR head, runs `python -m eval run --mode replay` in both, and
+  `scripts/eval_ci_comment.py` posts or edits one comment with the delta table. No tolerance band,
+  because replay is deterministic: fixed recordings, heuristic judge. The comment also refuses two
+  misreadings — a branch that changes *which* queries are scored is labelled not comparable as an
+  ablation, and the latency/cost rows are marked *not measured* rather than *not slower*, since
+  those numbers come from the recordings and no pipeline edit can move them. Posting is gated on
+  the Actions token, so nothing reaches the network from a dev machine. Suite: 346 offline tests.
 
 ---
 
@@ -77,7 +85,7 @@ other deep-research clones.
 | 2 | **Close eval findings F5 and F8.** F5: source matching is positional/substring, so a claim can be credited to the wrong source — an over-count, the one failure mode a benchmark must not have. F8: Cohen's κ is computed but never enforced in the run path, so `calibrate`'s gate is decorative. | The harness's credibility is the project's credibility. | $0 | 4 |
 | 3 | **Grow the gold set from 40 to ~120 queries**, keeping the T1–T4 stratification. | 40 is a regression detector, not a capability claim (the README says so honestly). At 120 with the same tiers you can publish a per-tier table that survives scrutiny. Source queries from HotpotQA/SimpleQA/FRAMES public samples — free, licensed, and already curated by others. | $0 | 6 |
 | 4 | **Publish a benchmark page**: one Markdown file per release with the metric table, the exact command to reproduce it, the commit SHA, and the fixture set. | This is the artifact a reviewer actually reads. Nobody runs your code first; they read your numbers and your method. | $0 | 2 |
-| 5 | **Wire `eval compare` into CI as a comment**, not a gate: on each PR, replay the fixtures and post the delta table. | Makes "no regression" mechanical instead of a claim, and every PR becomes a documented experiment. Runs offline, ~2 min. | $0 | 3 |
+| 5 | ~~**Wire `eval compare` into CI as a comment**~~ **done** (post-tag, see Unreleased in `CHANGELOG.md`) — `.github/workflows/eval-comment.yml` replays the gold set on both `main` and the PR head, then `scripts/eval_ci_comment.py` posts or updates one comment per PR. | Makes "no regression" mechanical instead of a claim, and every PR becomes a documented experiment. Runs offline, ~2 min. | $0 | 3 |
 
 ## P0b — measured against someone else's ruler
 
@@ -97,7 +105,7 @@ what it actually costs rather than hoping it is free.
 
 | # | Task | Why | Cost | Hrs |
 | --- | --- | --- | --- | --- |
-| 6 | **Upgrade off LangChain 0.1.x** (open item 9 in `KNOWN_ISSUES.md`) and delete the `pydantic.v1` shim. | An EOL-pinned framework is the first thing that ages the repo in a diff review. It is mechanical, and 336 offline tests make it safe. *In flight 2026-11-18: a parallel session is upgrading `langchain` in `.venv`; `requirements.txt` on `main` still pins `<0.2.0`, so check nobody lands it half-done.* | $0 | 6 |
+| 6 | **Upgrade off LangChain 0.1.x** (open item 9 in `KNOWN_ISSUES.md`) and delete the `pydantic.v1` shim. | An EOL-pinned framework is the first thing that ages the repo in a diff review. It is mechanical, and 346 offline tests make it safe. *Environment audit 2026-11-18: the parallel LangChain-1.x attempt landed nowhere. `.venv` here has no `langchain`, no `chromadb`, no `pytest` (a 14 MB shell of a venv), `.venv-fix` is what actually runs the suite on the pinned `langchain==0.1.20`, and `F:\Projects\AI-Agent-based-Deep-Research` still exists as a stub containing only that hollow `.venv` — no `.git`, no source. So nothing is half-done in a tracked file, and nothing is done either: `requirements.txt` still pins `<0.2.0`.* | $0 | 6 |
 | 7 | ~~**Add a security writeup**~~ **done** — `SECURITY.md` covers `sanitize.py`, `log_redaction.py`, PDF escaping, budget guards and push protection, with an explicit limitations section. Its companion fixture (7b) shipped the evidence half. | Retrieval-origin prompt injection is the most-asked design question in agent interviews, and you already have the mitigation — it is just undocumented. This is the highest hiring-signal-per-hour item on this list. | $0 | 0 |
 | 7b | ~~**Poisoned-page fixture**~~ **done** (PR #22) — `tests/test_poisoned_page.py` (11 tests) drives a hostile page through fetch → evidence → draft → judge with a stub that obeys the payload. | Turns the security writeup from prose into evidence, and it is the artifact an interviewer can read in ninety seconds. It also falsified one implication: fabricated citation numbers are dropped, but a poisoned page ranked **first** by the reranker earns a real `[1]`, so the judge and the eval — not the sanitiser — are what stand between a poisoned source and a published citation. | $0 | 2 |
 | 8 | **Expose the agent over MCP** (a thin stdio server wrapping the research tool). | Turns "another Streamlit app" into "a capability other agents can call", and it is the interface convention the ecosystem settled on. | $0 | 5 |

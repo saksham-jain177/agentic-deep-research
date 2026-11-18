@@ -154,6 +154,16 @@ python -m eval compare --baseline results/before.json --candidate results/after.
 One variable per run. A pipeline change that moves three metrics at once
 tells you nothing.
 
+The same comparison runs automatically on every pull request:
+`.github/workflows/eval-comment.yml` replays the gold set on both `main` and the PR
+head, and `scripts/eval_ci_comment.py` posts the delta table as a comment. Because
+replay scores fixed recordings with the heuristic judge, the comparison has no
+tolerance band — a non-zero adverse delta is the code's doing, not measurement
+noise. Two cases the raw table would mislead on, and the script states instead:
+a branch that changes *which* queries are scored is not an ablation, and the
+latency/cost rows cannot move from a pipeline change because they come from the
+recordings, so a zero there means *not measured*, not *not slower*.
+
 ## Defects found and fixed
 
 A line-by-line audit of this harness found four defects, all of which biased

@@ -1,0 +1,57 @@
+name: Eval replay
+
+# ROADMAP P0 item 5: every PR carries its own before/after table, so "no regression" is
+# mechanical instead of a claim in the description. Both sides replay the committed fixtures,
+# so the job needs no API key and spends nothing. It is a comment, not a gate - a deliberate
+# trade-off still merges, with the number visible.
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the PR head
+        uses: actions/checkout@v4
+        with:
+          path: head
+
+      - name: Check out main as the baseline
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: base
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: head/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r head/requirements.txt
+
+      - name: Replay the gold set on main
+        working-directory: base
+        run: python -m eval run --mode replay --out ../base-run.json
+
+      - name: Replay the gold set on this PR
+        working-directory: head
+        run: python -m eval run --mode replay --out ../head-run.json
+
+      - name: Post or update the comparison comment
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          python head/scripts/eval_ci_comment.py
+          --baseline base-run.json
+          --candidate head-run.json
+          --post

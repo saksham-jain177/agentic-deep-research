@@ -79,8 +79,12 @@ answer to an unknowable question should score worse than one that abstains.
 
 The harness is standard library only, needs no API keys, and is covered by its own
 offline tests. It also provides `compare` for ablation runs (one variable at a time) and
-`calibrate` for measuring LLM-judge agreement (Cohen's κ) against hand labels. See
-[eval/README.md](eval/README.md) for the metric definitions and methodology.
+`calibrate` for measuring LLM-judge agreement (Cohen's κ) against hand labels. Every pull
+request replays the gold set against `main` and posts the delta table as a comment, so "this
+change did not regress citation accuracy" is something you can read in the PR rather than take
+on trust — and the comment says which rows replay cannot measure, and when a change to the scored
+subset makes a delta meaningless. See [eval/README.md](eval/README.md) for the metric definitions
+and methodology.
 
 ## Architecture
 
@@ -217,7 +221,7 @@ This tool is **not**:
 
 ## Testing
 
-The test suite (336 offline tests — all LLM and Tavily calls are mocked; the full suite runs without API keys) covers evidence extraction, citation validation and bibliography numbering, section-level draft retry, reranking, prompt-injection sanitization, log redaction, token budgets, output-token caps, model fallback, timeouts, and the evaluation harness.
+The test suite (346 offline tests — all LLM and Tavily calls are mocked; the full suite runs without API keys) covers evidence extraction, citation validation and bibliography numbering, section-level draft retry, reranking, prompt-injection sanitization, log redaction, token budgets, output-token caps, model fallback, timeouts, and the evaluation harness — including the PR CI job that replays the gold set and posts the delta table.
 
 The injection defence is tested end to end rather than at the regex level:
 `tests/test_poisoned_page.py` feeds a poisoned page (real prose plus instruction-shaped text) through
@@ -246,7 +250,8 @@ pytest tests/ -v
 ├── cost_estimator.py     # Token/cost estimation with uncertainty
 ├── citation_formatter.py # APA/MLA/IEEE/BibTeX generation with citation grounding
 ├── eval/                 # Benchmark harness: gold set, three-tier citation scoring, metrics
-└── tests/                # Pytest suite: 336 tests, all offline (LLM/Tavily mocked)
+├── scripts/              # CI helpers, incl. the replay-eval PR comment
+└── tests/                # Pytest suite: 346 tests, all offline (LLM/Tavily mocked)
 ```
 
 ## Contributing
