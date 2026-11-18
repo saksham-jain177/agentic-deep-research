@@ -25,7 +25,7 @@ from typing import Callable, Dict, List, Optional, Sequence
 from .citations import parse_report
 from .judge import Judge
 from .metrics import compute_metrics, detect_abstention, metrics_by_tier
-from .schema import GoldQuery, PipelineOutput, QueryResult
+from .schema import GoldQuery, PipelineOutput, QueryResult, SKIP_PREFIX
 from .verify import LinkChecker, count_covered_claims, verify_pairs
 
 Pipeline = Callable[[GoldQuery], PipelineOutput]
@@ -63,7 +63,11 @@ def replay_pipeline(replay_dir: str) -> Pipeline:
     def run(gold: GoldQuery) -> PipelineOutput:
         path = os.path.join(replay_dir, f"{gold.id}.json")
         if not os.path.exists(path):
-            return PipelineOutput(report="", error=f"no replay recording at {path}")
+            # A missing recording is not a pipeline failure: the query was
+            # never attempted. Marking it "skipped:" keeps it out of the error
+            # count and out of the headline denominator, so a 4-fixture replay
+            # over a 40-query gold set cannot read as a 40-query measurement.
+            return PipelineOutput(report="", error=f"{SKIP_PREFIX} no replay recording at {path}")
         with open(path, "r", encoding="utf-8") as handle:
             payload = json.load(handle)
         return PipelineOutput(

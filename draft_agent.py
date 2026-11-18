@@ -10,7 +10,7 @@ from openai import APIConnectionError, RateLimitError
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 import evidence_extractor
 import cost_estimator
@@ -382,8 +382,28 @@ def _parse_publication_date(value) -> date | None:
                 return date(int(match.group()), 1, 1)
     return None
 
-def format_citation(source_dict: Dict[str, str], style: str) -> str:
-    """Format citation based on selected style using the CitationFormatter engine."""
+_LEADING_MARKER_RE = re.compile(r"^\[\d+\]")
+
+
+def _apply_citation_number(rendered: str, style_lower: str, number: Optional[int]) -> str:
+    """Set the printed bibliography position on a formatted reference."""
+    if number is None or not isinstance(rendered, str):
+        return rendered
+    if style_lower == "bibtex":
+        return rendered
+    if _LEADING_MARKER_RE.match(rendered):
+        return _LEADING_MARKER_RE.sub(f"[{number}]", rendered, count=1)
+    return f"[{number}] {rendered}"
+
+
+def format_citation(source_dict: Dict[str, str], style: str, number: Optional[int] = None) -> str:
+    """Format citation based on selected style using the CitationFormatter engine.
+
+    `number` is the bibliography position. The formatter is driven one source
+    at a time, so without it every entry is emitted as `[1]`; callers that
+    build a reference list must pass the position so the printed numbers match
+    the inline `[n]` markers in the report body.
+    """
     try:
         from citation_formatter import CitationFormatter, Source
 
@@ -411,18 +431,23 @@ def format_citation(source_dict: Dict[str, str], style: str) -> str:
         formatter = CitationFormatter([source])
         style_lower = (style or "APA").lower()
         if style_lower == "mla":
-            return formatter.format_mla()
-        if style_lower == "ieee":
-            return formatter.format_ieee()
-        if style_lower == "bibtex":
-            return formatter.format_bibtex()
-        return formatter.format_apa()
+            rendered = formatter.format_mla()
+        elif style_lower == "ieee":
+            rendered = formatter.format_ieee()
+        elif style_lower == "bibtex":
+            rendered = formatter.format_bibtex()
+        else:
+            rendered = formatter.format_apa()
+        return _apply_citation_number(rendered, style_lower, number)
     except Exception as e:
         logging.error(f"Error in professional citation formatting: {e}")
         # Fallback to simple formatting if module fails
         title = source_dict.get('title', 'Unknown Title')
         url = source_dict.get('url', '')
-        return f"{title}. Available at: {url}"
+        rendered = f"{title}. Available at: {url}"
+        if number is not None:
+            rendered = f"[{number}] {rendered}"
+        return rendered
 
 # --- Formatting helpers ---
 def sanitize_template_for_markdown(template_text: str) -> str:
@@ -533,6 +558,44 @@ def _validate_citations(section_text: str, num_sources: int):
     return cleaned.strip(), cited
 
 
+class _CitationRegistry:
+    """Maps evidence-table source ids to bibliography positions.
+
+    The model emits inline ``[n]`` against the evidence table (1..len(data)),
+    while the bibliography lists only the sources actually cited. Rewriting
+    the markers is what keeps ``[17]`` in the body from resolving against a
+    five-entry reference list - the dangling-citation defect ``python -m eval``
+    scores. Positions are assigned in first-citation order so a streamed
+    section can be renumbered before it is yielded.
+    """
+
+    def __init__(self):
+        self.order: List[int] = []
+        self._ref_by_id: Dict[int, int] = {}
+
+    def assign(self, source_ids) -> Dict[int, int]:
+        for sid in sorted(source_ids):
+            if sid not in self._ref_by_id:
+                self.order.append(sid)
+                self._ref_by_id[sid] = len(self.order)
+        return {sid: self._ref_by_id[sid] for sid in source_ids}
+
+    def references(self, data: List[Dict[str, Any]], citation_format: str) -> List[str]:
+        return [
+            format_citation(data[sid - 1], citation_format, ref)
+            for ref, sid in enumerate(self.order, 1)
+        ]
+
+
+def _renumber_citations(text: str, mapping: Dict[int, int]) -> str:
+    """Rewrite inline ``[n]`` source ids to their bibliography positions."""
+    if not mapping or not isinstance(text, str):
+        return text
+    return _CITATION_RE.sub(
+        lambda m: f"[{mapping.get(int(m.group(1)), int(m.group(1)))}]", text
+    )
+
+
 def _uncited_paragraphs(text: str):
     """Return indices of paragraphs containing no inline [n] citation."""
     flagged = []
@@ -541,6 +604,33 @@ def _uncited_paragraphs(text: str):
         if not _CITATION_RE.search(para):
             flagged.append(idx)
     return flagged
+
+
+_SECTION_WEIGHTS = {
+    "Abstract": 0.08,
+    "Introduction": 0.15,
+    "Literature Review": 0.20,
+    "Key Findings": 0.27,
+    "Analysis": 0.22,
+    "Conclusion": 0.08,
+}
+
+
+def _section_word_budget(section_names, target_word_count: int) -> Dict[str, int]:
+    """Split the word target by section role rather than dividing it equally.
+
+    `target_word_count // len(sections)` asks a 1000-word deep report for a
+    166-word abstract and a 166-word literature review, so the sections that
+    carry the evidence come out under-length for the job they have to do.
+    Weights are normalised over the sections actually present, so the target
+    is met whichever mode or subset is in play.
+    """
+    weights = [_SECTION_WEIGHTS.get(name, 1.0) for name in section_names]
+    total_weight = sum(weights) or 1.0
+    return {
+        name: max(60, int(round(target_word_count * w / total_weight)))
+        for name, w in zip(section_names, weights)
+    }
 
 
 # Drafting function with retry logic and deep research support
@@ -614,7 +704,7 @@ def draft_answer(
         )
 
         response_text = []
-        cited_ids = set()
+        citation_registry = _CitationRegistry()
 
         # Cost/reliability: model fallback chain. Primary model first, then
         # OPENROUTER_FALLBACK_MODELS. Free OpenRouter endpoints 429 often, so
@@ -625,12 +715,15 @@ def draft_answer(
         current_llm = llm_instance
         current_model_idx = 0
 
+        section_budgets = _section_word_budget(
+            [name for name, _ in sections], target_word_count)
+
         for section_name, prompt_template in sections:
             messages = [
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": prompt_template.format(
                     data=data_str,
-                    word_count=target_word_count // len(sections)
+                    word_count=section_budgets[section_name]
                 )}
             ]
 
@@ -672,8 +765,7 @@ def draft_answer(
             # paragraphs that carry no citation at all.
             num_sources = len(data)
             section_text, sec_cited = _validate_citations(section_text, num_sources)
-            if sec_cited:
-                cited_ids |= sec_cited
+            section_text = _renumber_citations(section_text, citation_registry.assign(sec_cited))
             uncited = _uncited_paragraphs(section_text)
             if uncited:
                 logging.warning(
@@ -686,10 +778,9 @@ def draft_answer(
         # fallback after rate limits on the primary).
         used_model = model_chain[current_model_idx]
         # References are rendered from the ids ACTUALLY cited inline, so the
-        # bibliography never lists a source the report body doesn't support.
-        citations = [
-            format_citation(data[i - 1], citation_format) for i in sorted(cited_ids)
-        ]
+        # bibliography never lists a source the report body doesn't support,
+        # and the printed numbers match the renumbered inline markers.
+        citations = citation_registry.references(data, citation_format)
         result = {
             "sections": response_text,
             "references": citations,
@@ -839,8 +930,10 @@ def stream_draft_answer(
         "Do not use HTML; use Markdown constructs only."
     )
 
-    cited_ids = set()
+    citation_registry = _CitationRegistry()
     completed_sections = []
+    section_budgets = _section_word_budget(
+        [name for name, _ in sections], target_word_count)
     used_model = os.getenv("OPENROUTER_MODEL") or os.getenv("OPENAI_MODEL") or "unknown"
 
     import verification_node
@@ -850,7 +943,7 @@ def stream_draft_answer(
             {"role": "system", "content": system_message},
             {"role": "user", "content": prompt_template.format(
                 data=data_str,
-                word_count=target_word_count // len(sections)
+                word_count=section_budgets[section_name]
             )}
         ]
 
@@ -888,8 +981,7 @@ def stream_draft_answer(
         if section_name == "Analysis":
             section_text = paragraphize_analysis(section_text, max_sentences=5)
         section_text, sec_cited = _validate_citations(section_text, len(data))
-        if sec_cited:
-            cited_ids |= sec_cited
+        section_text = _renumber_citations(section_text, citation_registry.assign(sec_cited))
         uncited = _uncited_paragraphs(section_text)
         if uncited:
             logging.warning(
@@ -926,7 +1018,7 @@ def stream_draft_answer(
     if contradictions:
         yield {"event": STREAM_EVENT_CONTRADICTIONS, "items": contradictions}
 
-    citations = [format_citation(data[i - 1], citation_format) for i in sorted(cited_ids)]
+    citations = citation_registry.references(data, citation_format)
     yield {
         "event": STREAM_EVENT_DONE,
         "sections": completed_sections,

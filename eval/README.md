@@ -39,6 +39,12 @@ python -m eval report --results results/smoke.json --out results/smoke.md
 A full run over the shipped fixtures is a smoke test, not a benchmark — see
 *Recording fixtures* below to cover all 40 queries.
 
+`python -m eval run --mode replay` walks the whole gold set and reports the
+gap explicitly: queries without a recording count as **skipped**, not errors,
+and the table prints `Queries scored 4 (10% of gold set)`. Committed example:
+[results/replay-goldset.md](../results/replay-goldset.md). Quote a headline
+number together with its coverage row, never on its own.
+
 ## What is measured
 
 Every `[n]` citation in the report becomes one **(claim, source) pair**, and
@@ -173,29 +179,35 @@ those fixtures contain no unresolved citations and no judge failures. That is
 the intended behaviour — the fix changes nothing where nothing was broken, and
 changes everything where the old denominator was hiding the damage.
 
-## Agent-side defects still open
+## Agent-side defect it exposed — now fixed
 
 One live query (`T1-01`, deep research, 28 sources gathered) surfaced two
-defects in the *agent's* output that the harness cannot fix for it:
+defects in the *agent's* output that the harness could measure but not repair:
 
-1. **Every reference is labelled `[1]`.** The `references` array in the draft
-   JSON contains distinct URLs, but each carries the same bracketed number.
-   Anything that resolves citations by their printed number — a reader, a
-   renderer, a downstream checker — is therefore pointing at the wrong source.
-2. **The report cites `[1]`..`[17]` but ships 5 references.** Twelve distinct
-   citation numbers have no corresponding entry, so those claims are
-   unattributable by construction.
+1. **Every reference was labelled `[1]`.** `format_citation()` built a
+   one-source `CitationFormatter` per entry, so each printed position was 1.
+2. **The report cited `[1]`..`[17]` but shipped 5 references.** Inline `[n]`
+   addressed the evidence table, while the bibliography was the compacted list
+   of only the cited sources — so most markers had no entry to resolve to.
 
-The harness normalises around (1) by renumbering references in array order,
-which is why `results/live-T1-01.json` still yields a measurable result. It
-does not paper over (2): 148 of 155 mapped pairs are flagged as dangling, and
-that is the correct verdict. Until the reference list is complete, citation
-accuracy cannot rise above the fraction of numbered citations that have an
-entry — which is the point of measuring it.
+`draft_agent` now keeps a per-run `_CitationRegistry`: the first section that
+cites a source fixes its bibliography position, the inline markers are
+rewritten to that position in the same single regex pass (so a renumbered
+marker is never renumbered twice), and the reference is printed with the same
+number. Renumbering happens before a streamed section is yielded, so streaming
+needs no second pass, and the renderers print the entry's own marker instead of
+adding an ordinal that could disagree with it.
 
-**Next fix, in order:** make `references` cover every citation number used in
-the body, and number them sequentially. Everything else in this harness is
-downstream of that.
+Covered by `tests/test_citation_numbering.py`, including an end-to-end check
+that `parse_report` returns `dangling == []`.
+
+**Still to do:** re-record the live fixtures. The replay fixtures are
+hand-authored and bypass the draft path, so the 0.6% on `T1-01` stays on record
+until a fresh `--mode live` run replaces it. Do not quote a new headline number
+before that recording exists — that is the whole discipline of this directory.
+
+**Next fix, in order:** F5 (positional/substring source matching can credit the
+wrong source), then F8 (κ is not enforced in the run path).
 
 ## Limitations
 

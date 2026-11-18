@@ -32,6 +32,7 @@ research_data.json
 feedback.txt
 research_agent.log
 chroma_db/
+results/latest.json
 
 # Editors/OS
 .vscode/

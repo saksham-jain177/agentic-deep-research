@@ -1,5 +1,6 @@
 """Pytest configuration and fixtures."""
 
+import os
 import pytest
 import sys
 from pathlib import Path
@@ -7,6 +8,22 @@ from pathlib import Path
 # Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
+
+
+@pytest.fixture(autouse=True)
+def isolate_environment():
+    """Restore os.environ after every test.
+
+    Modules here call dotenv.load_dotenv() while running, which publishes real
+    keys and model names into the shared process environment. Anything that
+    then reads an env-backed default - cost_dashboard.os_model_default() is one
+    - observes whatever an earlier test happened to load, so suite results
+    depend on file order instead of on the code under test.
+    """
+    saved = os.environ.copy()
+    yield
+    os.environ.clear()
+    os.environ.update(saved)
 
 
 @pytest.fixture

@@ -15,6 +15,11 @@ TIER_DESCRIPTIONS = {
     "T4": "Unanswerable - no reliable public answer exists (tests abstention)",
 }
 
+# An error string with this prefix means the query was never attempted (e.g. no
+# replay recording exists for it). Such runs are excluded from the error count
+# and reported as coverage, so a partial replay cannot read as a full measurement.
+SKIP_PREFIX = "skipped:"
+
 
 @dataclass(frozen=True)
 class GoldClaim:

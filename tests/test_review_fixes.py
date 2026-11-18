@@ -187,7 +187,7 @@ def test_pdf_escape_neutralizes_markup():
 def test_generate_pdf_survives_hostile_web_content():
     """Raw web content with tags/ampersands must not break reportlab."""
     ns = _extract_app_functions(
-        "on_page", "format_reference_for_pdf", "_pdf_escape", "generate_pdf"
+        "on_page", "format_reference_for_pdf", "_pdf_escape", "_reference_line", "generate_pdf"
     )
     summary = json.dumps({
         "sections": [
