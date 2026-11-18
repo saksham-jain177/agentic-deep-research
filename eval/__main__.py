@@ -14,7 +14,7 @@ import argparse
 import json
 import os
 import sys
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from .goldset import load_goldset, tier_counts, validate_goldset
 from .judge import HeuristicJudge, build_openrouter_judge
@@ -51,6 +51,50 @@ def cmd_validate(args) -> int:
     return 1 if problems else 0
 
 
+KAPPA_GATE = 0.6
+
+
+def _resolve_calibration(args) -> Optional[Dict[str, object]]:
+    """Load judge/human labels when ``--calibration`` was given (F8).
+
+    Returns the calibration dict to embed in run metadata, or None when no
+    labels were supplied. Exits the process (via SystemExit) when the judge
+    fails the kappa gate and ``--allow-uncalibrated`` was not passed: a run
+    scored by a judge that disagrees with its human must not silently become
+    a publishable number.
+    """
+    if not getattr(args, "calibration", None):
+        print(
+            "note: no --calibration labels supplied; the run is scored by an "
+            "uncalibrated judge and will be marked as such",
+            file=sys.stderr,
+        )
+        return None
+    report = load_calibration(args.calibration)
+    kappa = report.get("cohen_kappa")
+    if kappa is None or report.get("n", 0) == 0:
+        print(
+            f"error: calibration file {args.calibration} contains no usable labels",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    if kappa < KAPPA_GATE and not getattr(args, "allow_uncalibrated", False):
+        print(
+            f"error: judge kappa {kappa} is below the {KAPPA_GATE} gate - the judge is "
+            "not reliable enough to score a publishable run. Re-calibrate or pass "
+            "--allow-uncalibrated to record the run anyway.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+    if kappa < KAPPA_GATE:
+        print(
+            f"warning: judge kappa {kappa} is below the {KAPPA_GATE} gate; the run is "
+            "recorded with the failing calibration attached",
+            file=sys.stderr,
+        )
+    return report
+
+
 def cmd_run(args) -> int:
     queries = load_goldset(args.goldset)
     tiers = [t.strip().upper() for t in args.tiers.split(",")] if args.tiers else None
@@ -62,6 +106,8 @@ def cmd_run(args) -> int:
     if args.mode == "replay" and not os.path.isdir(args.replay_dir):
         print(f"error: replay directory not found: {args.replay_dir}", file=sys.stderr)
         return 2
+
+    calibration = _resolve_calibration(args)
 
     results = evaluate(
         queries,
@@ -81,6 +127,7 @@ def cmd_run(args) -> int:
             judge_name=getattr(judge, "name", "unknown"),
             notes=args.notes or "",
             link_check_mode="http" if args.check_links else "captured_content",
+            judge_calibration=calibration,
         ),
     )
     save_payload(payload, args.out)
@@ -150,6 +197,16 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--limit", type=int, default=None)
     run.add_argument("--notes", default="")
     run.add_argument("--out", default=os.path.join("results", "latest.json"))
+    run.add_argument(
+        "--calibration",
+        default=None,
+        help="JSONL of human/model judge labels; enforces the kappa gate (F8)",
+    )
+    run.add_argument(
+        "--allow-uncalibrated",
+        action="store_true",
+        help="record the run even when the calibration gate fails (failing kappa is stored)",
+    )
     run.set_defaults(func=cmd_run)
 
     report = sub.add_parser("report", help="render a saved run as Markdown")

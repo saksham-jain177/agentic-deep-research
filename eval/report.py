@@ -119,6 +119,29 @@ def truncation_notice(metrics: Dict[str, object]) -> str:
     )
 
 
+def calibration_notice(metadata: Dict[str, object]) -> str:
+    """Loud notice when the run was scored by an uncalibrated judge (F8)."""
+    calibration = metadata.get("judge_calibration")
+    if calibration:
+        kappa = calibration.get("cohen_kappa")
+        n = calibration.get("n", 0)
+        gate = "" if (isinstance(kappa, (int, float)) and kappa >= 0.6) else (
+            f" - BELOW the 0.6 gate"
+            if isinstance(kappa, (int, float))
+            else ""
+        )
+        return (
+            f"> Judge calibration: Cohen's kappa **{kappa}** against {n} human "
+            f"labelled pairs{gate}.\n\n"
+        )
+    return (
+        "> **WARNING: this run was scored by an UNCALIBRATED judge.** No human "
+        "labels were supplied (`eval run --calibration ...`), so the support and "
+        "accuracy numbers below have never been checked against a human. Treat "
+        "them as directional, not publishable.\n\n"
+    )
+
+
 def render_markdown(payload: Dict[str, object], title: str = "Deep Research Agent - Evaluation") -> str:
     metadata = payload.get("metadata", {})
     metrics = payload.get("metrics", {})
@@ -133,6 +156,7 @@ def render_markdown(payload: Dict[str, object], title: str = "Deep Research Agen
         f"commit: `{metadata.get('git_commit', 'n/a')}` | "
         f"run at {metadata.get('started_at', 'unknown')}_",
         "",
+        calibration_notice(metadata),
         "## Headline",
         "",
         format_metrics_table(metrics),

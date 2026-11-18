@@ -292,6 +292,19 @@ def parse_report(report, backward_attribution: bool = True) -> ParsedReport:
     return parsed
 
 
+def _norm_url(url: str) -> str:
+    """Light URL normalisation: scheme, www prefix and trailing slash.
+
+    Enough to stop trivial spelling differences (``http`` vs ``https``, a
+    trailing ``/``) from forcing a match fallback, without pretending two
+    different pages are the same page.
+    """
+    u = (url or "").strip().lower()
+    u = re.sub(r"^https?://", "", u)
+    u = re.sub(r"^www\.", "", u)
+    return u.rstrip("/")
+
+
 def find_reference_text(
     number: int,
     sources: List[dict],
@@ -299,21 +312,40 @@ def find_reference_text(
 ) -> str:
     """Recover the body text for citation ``n`` from the gathered sources.
 
-    Matching order: exact URL, then same domain, then the reference number's
-    position in the source list (the agent numbers sources in order).
+    Matching order (eval/README.md, F5):
+
+    1. exact URL after light normalisation - unambiguous, always safe;
+    2. the reference's domain, but ONLY when exactly one gathered source
+       carries it. Two same-domain sources make the reference ambiguous, and
+       picking the first credited claims to a page the report may not have
+       used - an over-count, the one failure mode a benchmark must not have;
+    3. the reference number's position in the source list, but ONLY when the
+       reference carries no URL at all. A URL that failed to match is evidence
+        the reference points somewhere the source list does not contain;
+        falling back to position there would grade the claim against an
+       arbitrary page.
+
+    Every unmatched case returns "" so the pair fails tier 1 honestly.
     """
     ref: Optional[Reference] = references.get(number)
     if ref is None:
         return ""
     if ref.url:
+        target = _norm_url(ref.url)
         for src in sources:
-            if str(src.get("url", "")).strip() == ref.url:
+            if _norm_url(str(src.get("url", ""))) == target:
                 return str(src.get("content", "") or "")
         ref_domain = ref.domain
-        for src in sources:
-            src_url = str(src.get("url", ""))
-            if ref_domain and ref_domain in src_url:
-                return str(src.get("content", "") or "")
+        if ref_domain:
+            domain_matches = [
+                src
+                for src in sources
+                if ref_domain in str(src.get("url", "")).lower()
+            ]
+            if len(domain_matches) == 1:
+                return str(domain_matches[0].get("content", "") or "")
+            return ""
+        return ""
     if 0 < number <= len(sources):
         return str(sources[number - 1].get("content", "") or "")
     return ""
