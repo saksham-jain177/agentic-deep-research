@@ -103,23 +103,14 @@ def report_markdown(query: str, sections: list, contradictions: list,
 
 
 def _consume(stream) -> dict:
-    """Print each event and collect what a Markdown report needs from it."""
-    sections, contradictions, references, metadata = [], [], [], {}
-    events = 0
-    for event in stream:
-        events += 1
-        _print_event(event)
-        kind = event.get("event")
-        if kind == draft_agent.STREAM_EVENT_SECTION:
-            sections.append(event)
-        elif kind == draft_agent.STREAM_EVENT_CONTRADICTIONS:
-            contradictions.extend(event.get("items", []))
-        elif kind == draft_agent.STREAM_EVENT_DONE:
-            references = list(event.get("references", []))
-            metadata = dict(event.get("metadata", {}))
-    return {"events": events, "sections": sections,
-            "contradictions": contradictions, "references": references,
-            "metadata": metadata}
+    """Print each event and collect the canonical report dict.
+
+    Delegates collection to ``draft_agent.collect_streamed_report`` (the
+    single construction site of the report contract) with this module's
+    printer as the per-event callback, so live output and collection stay in
+    one pass and the CLI emits the same versioned shape as the MCP server.
+    """
+    return draft_agent.collect_streamed_report(stream, on_event=_print_event)
 
 
 def _mock_stream(deep: bool, words: int):

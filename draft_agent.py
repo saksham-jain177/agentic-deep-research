@@ -1030,23 +1030,45 @@ def stream_draft_answer(
     }
 
 
-def collect_streamed_report(stream) -> dict:
+def collect_streamed_report(stream, on_event=None) -> dict:
     """Consume a stream_draft_answer stream into a single result dict with the
     same shape as draft_answer's JSON output (plus 'verification' and
-    'contradictions' keys)."""
+    'contradictions' keys).
+
+    This is the SINGLE construction site of the report dict every downstream
+    parser (eval harness, cost dashboard, exporters, MCP server) consumes;
+    ``stream_cli._consume`` and the MCP server delegate here. The result is
+    stamped with the versioned report contract
+    (``report_contract.SCHEMA_VERSION``).
+
+    ``on_event`` - optional callback invoked with each raw event as it
+    arrives (stream_cli passes its printer, so live output and collection
+    stay in one pass). Sections keep their judge verdict as an optional
+    ``verification`` key; ``index``/``event`` are transport keys and are not
+    copied into the report.
+    """
+    import report_contract
+
     result = {"sections": [], "references": [], "metadata": {},
-              "verification": [], "contradictions": []}
+              "verification": [], "contradictions": [], "events": 0,
+              "schema_version": report_contract.SCHEMA_VERSION}
     for event in stream:
+        result["events"] += 1
+        if on_event is not None:
+            on_event(event)
         kind = event.get("event")
         if kind == STREAM_EVENT_SECTION:
-            result["sections"].append({"title": event["title"], "content": event["content"]})
+            section = {"title": event["title"], "content": event["content"]}
+            if event.get("verification") is not None:
+                section["verification"] = event["verification"]
+            result["sections"].append(section)
             if event.get("verification"):
                 result["verification"].append(event["verification"])
         elif kind == STREAM_EVENT_CONTRADICTIONS:
-            result["contradictions"] = event["items"]
+            result["contradictions"].extend(event.get("items", []))
         elif kind == STREAM_EVENT_DONE:
-            result["references"] = event.get("references", [])
-            result["metadata"] = event.get("metadata", {})
+            result["references"] = list(event.get("references", []))
+            result["metadata"] = dict(event.get("metadata", {}))
             if event.get("error"):
                 result["error"] = event["error"]
     return result
