@@ -217,7 +217,16 @@ This tool is **not**:
 
 ## Testing
 
-The test suite (325 offline tests — all LLM and Tavily calls are mocked; the full suite runs without API keys) covers evidence extraction, citation validation and bibliography numbering, section-level draft retry, reranking, prompt-injection sanitization, log redaction, token budgets, output-token caps, model fallback, timeouts, and the evaluation harness.
+The test suite (336 offline tests — all LLM and Tavily calls are mocked; the full suite runs without API keys) covers evidence extraction, citation validation and bibliography numbering, section-level draft retry, reranking, prompt-injection sanitization, log redaction, token budgets, output-token caps, model fallback, timeouts, and the evaluation harness.
+
+The injection defence is tested end to end rather than at the regex level:
+`tests/test_poisoned_page.py` feeds a poisoned page (real prose plus instruction-shaped text) through
+fetch → evidence → draft → judge with a stub model that **obeys** the payload, and asserts what comes
+out the other side. Two results worth stating plainly: a citation number the page invents (`[7]`
+against a three-source table) is dropped and never reaches the bibliography, but the same page ranked
+**first** by the real cross-encoder acquires a legitimate `[1]` and nothing in the drafting path
+objects — position in a reference list is not a trust signal. That second finding is documented as a
+limitation in [SECURITY.md](SECURITY.md), not quietly dropped.
 
 ```bash
 pytest tests/ -v
@@ -237,7 +246,7 @@ pytest tests/ -v
 ├── cost_estimator.py     # Token/cost estimation with uncertainty
 ├── citation_formatter.py # APA/MLA/IEEE/BibTeX generation with citation grounding
 ├── eval/                 # Benchmark harness: gold set, three-tier citation scoring, metrics
-└── tests/                # Pytest suite: 325 tests, all offline (LLM/Tavily mocked)
+└── tests/                # Pytest suite: 336 tests, all offline (LLM/Tavily mocked)
 ```
 
 ## Contributing

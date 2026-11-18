@@ -11,7 +11,31 @@ Measurement note: every "tests" figure is the offline suite
 numbers are cited from `results/replay-goldset.md` and carry their coverage
 (4 of 40 gold queries currently have replay recordings), not as a 40-query claim.
 
-## [Unreleased] — branch `fix/citation-numbering`
+## [0.5.0] — 2026-11-18
+
+First tagged release. Everything between `0.4.0` and this line is what PRs #18, #19, #21 and #22
+merged into `main`; the tag is annotated with the reproduction command and the current eval coverage.
+
+**Why 0.5.0 and not 1.0.0.** 4 of the 40 gold queries have replay recordings, so the headline
+numbers in the README describe a tenth of the benchmark, and the LangChain 0.1.x pin is still in
+`requirements.txt`. `1.0.0` should be the release where `eval compare` runs on every PR, the gold
+set is re-recorded at full coverage, and the benchmark page exists — that is ROADMAP P0 items 1–5.
+A version number is a claim, and this project's claim is that it does not publish numbers it cannot
+reproduce.
+
+### Added
+- **Adversarial poisoned-page fixture** (`tests/fixtures/poisoned_wheat_page.html`,
+  `tests/test_poisoned_page.py`, 11 tests, offline). A page carrying instruction-shaped text is
+  pushed through fetch → evidence → draft → judge with a stub model that obeys the payload. It pins
+  two properties and falsifies a third assumption: an invented citation number (`[7]`) is stripped
+  and never reaches the bibliography, and no dangling citation survives the run; but the same page,
+  ranked first by the real cross-encoder, acquires a legitimate `[1]` that the drafting layer has no
+  basis to refuse. `SECURITY.md` gained that limitation. Suite: 336 offline tests.
+
+### Landed since the last release
+- PRs #18 (offline eval harness + review fixes), #19 (eval scoring validity) and #21 (citation
+  numbering, weighted section budgets, the keyless `--mock` fix, `SECURITY.md`, `CHANGELOG.md`,
+  `ROADMAP.md`) are merged into `main`.
 
 ### Fixed
 - **Bibliography numbering now matches the inline markers.** The draft node printed
@@ -42,9 +66,10 @@ numbers are cited from `results/replay-goldset.md` and carry their coverage
   depended on undocumented kwarg forwarding through `Tool.run`.
 
 ### Tests
-- 325 offline tests (up from 282). `os.environ` is snapshotted and restored per test,
+- 325 → 336 offline tests (up from 282). `os.environ` is snapshotted and restored per test,
   so a `load_dotenv()` in one test no longer decides another's verdict; the cost
-  dashboard's unlabelled-model default is pinned. (commit `0a10bbb`)
+  dashboard's unlabelled-model default is pinned. (commit `0a10bbb` at 325; the 11
+  poisoned-page tests above land on top of it in PR #22)
 
 ### Docs
 - `ROADMAP.md` — taskpad ordered by impact per unit of zero-cost effort, an

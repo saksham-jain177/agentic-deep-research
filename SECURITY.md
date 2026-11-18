@@ -35,13 +35,23 @@ isolation and no output signing. Do not put an instance somewhere anonymous user
 | Debug artifacts capturing raw results | The raw research dump is behind `DEBUG_DUMP_RESEARCH` and off by default, so ordinary runs write nothing beyond the vector store and the report you asked for. | `research_agent.py` |
 
 Tests for the injection, escaping, redaction and budget paths are offline and keyless:
-`python -m pytest` runs the whole suite without any credential present.
+`python -m pytest` runs the whole suite without any credential present. The injection path is
+covered end to end, not just at the regex level — `tests/test_poisoned_page.py` feeds a poisoned
+page through fetch → evidence → draft → judge with a stub model that *obeys* the payload, and
+asserts what survives.
 
 ## Known limitations — read these before trusting the mitigations
 
 - **Sanitisation is heuristic, not a guarantee.** It removes the instruction patterns this project
   has actually observed. A page can still influence a report by being persuasive; a human reads the
   output before acting on it, and that is part of the design, not a fallback.
+- **Ranking can promote a hostile page into a legitimate citation slot.** Measured against the
+  fixture in `tests/fixtures/poisoned_wheat_page.html`: with the real cross-encoder, the poisoned
+  page came back *first* in the evidence table, so its demand to be cited as `[1]` addressed a
+  source that does carry the quoted text and citation validation had nothing to object to. Position
+  in the reference list is not a trust signal. The fabricated-number case (`[7]` against a
+  three-source table) is caught; the in-range case is caught only by the judge and the eval, which
+  is why both exist.
 - **Domain filtering is a blocklist.** `EXCLUDED_DOMAINS` removes social platforms; it is not an
   allowlist and should not be treated as a trust decision.
 - **The LLM-as-a-Judge verification node is not a security control.** It measures whether a
