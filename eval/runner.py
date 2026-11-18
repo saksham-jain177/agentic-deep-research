@@ -42,6 +42,11 @@ class RunMetadata:
     # tier 1 only confirms the research step captured text for that citation.
     # These are different measurements and must not share a column name.
     link_check_mode: str = "captured_content"
+    # Judge/human agreement (eval/README.md, F8): {"n", "raw_agreement",
+    # "cohen_kappa"} when the run was calibrated against human labels, None
+    # when it was not. A None here means the numbers below were produced by
+    # an judge whose agreement with a human was never measured.
+    judge_calibration: Optional[Dict[str, object]] = None
 
 
 def _git_commit() -> str:

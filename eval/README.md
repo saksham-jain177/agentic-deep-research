@@ -216,8 +216,40 @@ hand-authored and bypass the draft path, so the 0.6% on `T1-01` stays on record
 until a fresh `--mode live` run replaces it. Do not quote a new headline number
 before that recording exists — that is the whole discipline of this directory.
 
-**Next fix, in order:** F5 (positional/substring source matching can credit the
-wrong source), then F8 (κ is not enforced in the run path).
+**Next fix, in order:** ~~F5 (positional/substring source matching can credit the
+wrong source), then F8 (κ is not enforced in the run path)~~ — both fixed; see
+below.
+
+### F5 — source matching can no longer credit the wrong source
+
+`find_reference_text` matched in three loose steps: exact URL, then any source
+whose URL contained the reference's domain (first hit wins), then — when the
+URL matched nothing — the reference number's position in the source list. Two
+of those three can grade a claim against a page the report never cited: a
+domain with two gathered sources is ambiguous, and a URL that matched nothing
+is evidence the reference points outside the source list, not a licence to use
+position. Position-matching was an over-count, the one failure mode a
+benchmark must not have.
+
+The matcher now: (1) matches exact URLs after light normalisation (scheme,
+`www`, trailing slash) so trivial spelling differences don't manufacture
+failures; (2) matches by domain only when exactly one gathered source carries
+it — two or more same-domain sources return nothing, failing the pair
+honestly; (3) falls back to position only when the reference carries no URL at
+all. Covered by `tests/test_eval_source_matching.py`, including the
+end-to-end case where the old code graded a claim against an uncited page.
+
+### F8 — the kappa gate is enforced in the run path
+
+`eval calibrate` computed Cohen's κ and printed a warning, but `eval run`
+never looked at calibration: a judge that disagreed with its human could score
+a publishable run. `run` now accepts `--calibration labels.jsonl`; a κ below
+0.6 fails the run (exit 1) unless `--allow-uncalibrated` is passed, and the
+calibration (or its absence) is recorded in run metadata
+(`judge_calibration`). The rendered report states κ against n human pairs, or
+marks the run **UNCALIBRATED** in a banner when no labels were supplied — an
+uncalibrated number is directional, not publishable. Covered by
+`tests/test_eval_source_matching.py::TestF8CalibrationGate`.
 
 ## Limitations
 

@@ -13,6 +13,23 @@ numbers are cited from `results/replay-goldset.md` and carry their coverage
 
 ## [Unreleased]
 
+### Fixed
+- **Eval F5 — source matching can no longer credit a claim to the wrong source.** `find_reference_text`
+  matched by exact URL, then by any source whose URL contained the reference's domain (first hit
+  wins), then by the reference number's position in the source list when the URL matched nothing.
+  Two of those three grade claims against pages the report may never have cited: a domain shared
+  by two gathered sources is ambiguous, and a URL that matches nothing means the reference points
+  outside the source list. The matcher now normalises URLs (scheme/`www`/trailing slash) for the
+  exact match, resolves a domain only when exactly one gathered source carries it, and falls back
+  to position only when the reference carries no URL at all — every other case fails the pair
+  honestly instead of guessing.
+- **Eval F8 — the Cohen's κ gate is enforced in the run path.** `eval run` gains `--calibration
+  labels.jsonl`: a judge whose κ against human labels is below 0.6 fails the run (exit 1) unless
+  `--allow-uncalibrated` is passed, and the calibration is recorded in run metadata
+  (`judge_calibration`). The rendered report states κ against n human pairs, or marks the run
+  **UNCALIBRATED** in a banner when no labels were supplied — previously `calibrate` printed a
+  warning that nothing downstream read.
+
 ### Added
 - **Replay eval as a PR comment** (ROADMAP P0 item 5, the gate that was standing between this
   project and "every PR is a documented experiment"). `.github/workflows/eval-comment.yml` checks
