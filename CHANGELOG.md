@@ -66,9 +66,10 @@ reproduce.
   depended on undocumented kwarg forwarding through `Tool.run`.
 
 ### Tests
-- 325 offline tests (up from 282). `os.environ` is snapshotted and restored per test,
+- 325 → 336 offline tests (up from 282). `os.environ` is snapshotted and restored per test,
   so a `load_dotenv()` in one test no longer decides another's verdict; the cost
-  dashboard's unlabelled-model default is pinned. (commit `0a10bbb`)
+  dashboard's unlabelled-model default is pinned. (commit `0a10bbb` at 325; the 11
+  poisoned-page tests above land on top of it in PR #22)
 
 ### Docs
 - `ROADMAP.md` — taskpad ordered by impact per unit of zero-cost effort, an
