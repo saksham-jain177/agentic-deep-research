@@ -8,12 +8,13 @@ python-docx
 tavily-python
 
 # LangChain ecosystem
-langchain>=0.1.0,<0.2.0
-langchain-openai>=0.1.0
-langgraph>=0.0.30
-# Transitive via langchain 0.1.x, pinned explicitly so environments that also
-# see a newer global langsmith (e.g. --system-site-packages venvs) stay coherent
-langsmith>=0.1.17,<0.2
+langchain>=0.3.0,<0.4
+langchain-core>=0.3.0,<0.4
+langchain-openai>=0.2.0,<0.4
+langgraph>=0.2.0,<0.4
+# Transitive via langchain, pinned explicitly so environments that also see a
+# different global langsmith (e.g. --system-site-packages venvs) stay coherent
+langsmith>=0.1.17,<1.0
 
 # Vector + embeddings
 chromadb>=0.4.0
@@ -21,7 +22,7 @@ sentence-transformers>=2.2.0
 numpy
 
 # Compatibility
-pydantic>=1.10.0
+pydantic>=2.0.0
 
 genai-prices>=0.0.50
 tokencost>=0.1.0
