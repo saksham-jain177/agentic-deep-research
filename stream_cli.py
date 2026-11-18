@@ -151,7 +151,8 @@ def _mock_stream(deep: bool, words: int):
     try:
         with ExitStack() as stack:
             for target in ("draft_agent.ChatOpenAI", "verification_node.ChatOpenAI",
-                           "contradiction_detector.ChatOpenAI"):
+                           "contradiction_detector.ChatOpenAI",
+                           "evidence_extractor.ChatOpenAI"):
                 stack.enter_context(patch(target, StubLLM))
             yield from draft_agent.stream_draft_answer(
                 [{"title": "Climate report", "url": "https://example.com/climate",
@@ -182,6 +183,19 @@ def main() -> int:
     if args.mock:
         report = _consume(_mock_stream(args.deep, args.words))
     else:
+        # Same gate the web app and the MCP server apply (ROADMAP item 10):
+        # refuse the run before any API call when MAX_RUN_COST_USD is set and
+        # the worst-case estimate exceeds it. --mock spends nothing and is
+        # never gated.
+        import cost_guard
+
+        try:
+            cost_guard.assert_within_cap(
+                args.query, deep_research=args.deep, target_word_count=args.words
+            )
+        except cost_guard.CostCapExceeded as exc:
+            print(f"Run refused: {exc}", file=sys.stderr)
+            return 2
         try:
             import research_agent
             results = research_agent.research_web(args.query, deep_research=args.deep)

@@ -44,6 +44,11 @@ The first is the whole product in one command: it searches, drafts section by se
 verdict per section, and writes a Markdown report to `report.md`. The second stubs the model so you
 can see the streaming and verification protocol before spending a credit.
 
+**Cost cap (opt-in):** set `MAX_RUN_COST_USD=0.50` (any non-negative number) and every live entry
+point — the web app, the CLI, and the MCP server — refuses to start when the pre-run worst-case
+estimate exceeds the cap, before a single API call is made (CLI exit code 2). Unset, nothing
+changes; `--mock` is never gated. A malformed value fails closed rather than silently uncapping.
+
 *(A recorded 60-second GIF embedded here would convert more visitors than either URL, and cannot
 rot. Tracked in [ROADMAP.md](ROADMAP.md), P1.)*
 
@@ -163,6 +168,9 @@ python stream_cli.py "your research query" --deep --out report.md
 
 # Or see it work with no keys and no spend
 python stream_cli.py --mock
+
+# Or expose it to an AI agent over MCP (Claude Desktop, Cursor, ...)
+python mcp_server.py
 ```
 
 **Required API Keys:**
@@ -181,6 +189,32 @@ LLM_MAX_OUTPUT_TOKENS=4000     # Per-call LLM output token cap (default 4000)
 TOKEN_BUDGET_PER_REPORT=12000  # Total prompt-token budget; low-confidence evidence is trimmed to fit
 OPENROUTER_FALLBACK_MODELS=    # Comma-separated fallback model chain for rate limits / empty responses
 ```
+
+### Run it from an AI agent (MCP)
+
+`mcp_server.py` speaks the [Model Context Protocol](https://modelcontextprotocol.io) over stdio, so any MCP client — Claude Desktop, Cursor, your own agent — can run a research job as a tool call and read the full report back. It wraps the same streaming pipeline the CLI and the web app use; nothing about those entry points changes, and it adds zero dependencies (the JSON-RPC 2.0 stdio transport is implemented in the file itself).
+
+Register it with your client:
+
+```json
+{
+  "mcpServers": {
+    "agentic-deep-research": {
+      "command": "python",
+      "args": ["/path/to/agentic-deep-research/mcp_server.py"]
+    }
+  }
+}
+```
+
+Two tools are exposed:
+
+| Tool | What it does |
+| --- | --- |
+| `deep_research(query, deep, target_word_count, mock, out)` | Runs the pipeline and returns the full Markdown report — per-section verification verdicts, conflicting-evidence table, reference list. `mock: true` runs the stubbed offline pipeline (no keys, no spend) so an agent can smoke-test the integration before spending quota. The live path is gated by the same `MAX_RUN_COST_USD` cost cap as the web app. `out` saves the report into `results/` for later retrieval. |
+| `read_report(path)` | Reads a saved Markdown report from `results/`. Sandboxed to that directory — no traversal, `.md` only. |
+
+Protocol discipline is pinned by tests: tool execution runs with stdout redirected to stderr, so pipeline chatter can never corrupt the JSON-RPC frame stream, and a failing tool call returns a structured `isError` result instead of killing the server.
 
 ## Configuration
 

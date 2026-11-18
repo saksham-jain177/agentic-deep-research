@@ -167,6 +167,14 @@ app = workflow.compile()
 # Function to run the research system
 def run_research(query: str, deep_research: bool = False, target_word_count: int = 1000, writing_style: str = "academic", citation_format: str = "APA", language: str = "english") -> tuple:
     """Run the research workflow and return results."""
+    # Cost gate (ROADMAP item 10): refuse the run before any API call when
+    # MAX_RUN_COST_USD is set and the worst-case estimate exceeds it. Unset
+    # (the default) means no cap - behaviour is unchanged. CostCapExceeded
+    # propagates to the caller (the Streamlit UI's handler shows it).
+    import cost_guard
+
+    cost_guard.assert_within_cap(query, deep_research=deep_research, target_word_count=target_word_count)
+
     # Normalize style and language to lowercase to align with draft_agent expectations
     writing_style = writing_style.lower()
     language = language.lower()
