@@ -24,6 +24,15 @@ numbers are cited from `results/replay-goldset.md` and carry their coverage
   stack (langchain 0.3.30, langchain-core 0.3.86, langgraph 0.3.34, pydantic 2.14.3).
 
 ### Added
+- **Versioned report contract** (ROADMAP item 21): `report_contract.py` pins the shape of the report
+  dict the pipeline emits — `SCHEMA_VERSION` ("1.0"), documented key sets, `validate()` returning
+  human-readable violations — and `tests/test_report_contract.py` runs the offline mock pipeline
+  end to end against it, so any undocumented shape change anywhere upstream fails the suite until
+  the contract is updated and the version bumped. The contract's first run caught a real drift:
+  `stream_cli._consume` and the MCP server's `_collect` were two divergent copies of the collection
+  logic, one carrying raw transport keys (`event`, `index`) inside sections. Both now delegate to
+  `draft_agent.collect_streamed_report` (the single construction site); sections keep their judge
+  verdict as an optional `verification` key and `events` is a documented optional key.
 - **Pre-run cost cap (`MAX_RUN_COST_USD`)** (ROADMAP item 10): `cost_guard.py` turns the cost
   estimator from a report into a control. When the variable is set, every live entry point — the
   web app (`main.run_research`), the CLI (`stream_cli.main`, exit code 2), and the MCP server

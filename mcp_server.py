@@ -85,22 +85,13 @@ class ToolError(Exception):
 # --------------------------------------------------------------------------
 
 def _collect(stream) -> dict:
-    """Consume stream events without printing (stream_cli._consume prints)."""
-    sections, contradictions, references, metadata = [], [], [], {}
-    events = 0
-    for event in stream:
-        events += 1
-        kind = event.get("event")
-        if kind == draft_agent.STREAM_EVENT_SECTION:
-            sections.append(event)
-        elif kind == draft_agent.STREAM_EVENT_CONTRADICTIONS:
-            contradictions.extend(event.get("items", []))
-        elif kind == draft_agent.STREAM_EVENT_DONE:
-            references = list(event.get("references", []))
-            metadata = dict(event.get("metadata", {}))
-    return {"events": events, "sections": sections,
-            "contradictions": contradictions, "references": references,
-            "metadata": metadata}
+    """Consume stream events into the canonical report dict.
+
+    Delegates to ``draft_agent.collect_streamed_report`` - the single
+    construction site of the versioned report contract (stream_cli._consume
+    delegates to the same function with a printer attached).
+    """
+    return draft_agent.collect_streamed_report(stream)
 
 
 def _tool_deep_research(arguments: dict) -> str:
